@@ -16,17 +16,10 @@ function readBills() {
     }
 
     return JSON.parse(
-      fs.readFileSync(
-        dataPath,
-        'utf8'
-      )
+      fs.readFileSync(dataPath, 'utf8')
     )
   } catch (error) {
-    console.error(
-      'Read bills error:',
-      error
-    )
-
+    console.error('Read bills error:', error)
     return []
   }
 }
@@ -34,11 +27,7 @@ function readBills() {
 function writeBills(bills) {
   fs.writeFileSync(
     dataPath,
-    JSON.stringify(
-      bills,
-      null,
-      2
-    ),
+    JSON.stringify(bills, null, 2),
     'utf8'
   )
 }
@@ -52,8 +41,7 @@ export async function PUT(
 
     const billId = Number(id)
 
-    const updatedBill =
-      await request.json()
+    const data = await request.json()
 
     const bills = readBills()
 
@@ -66,26 +54,81 @@ export async function PUT(
       return NextResponse.json(
         {
           success: false,
-          message:
-            'Bill not found',
+          message: 'Bill not found',
         },
         { status: 404 }
       )
     }
 
-    bills[index] = {
+    const updatedBill = {
       ...bills[index],
-      ...updatedBill,
-      id: bills[index].id,
+
+      number:
+        data.number ??
+        bills[index].number,
+
+      date:
+        data.date ??
+        bills[index].date,
+
+      customer:
+        data.customer ??
+        bills[index].customer,
+
+      customerAddress:
+        data.customerAddress ??
+        bills[index].customerAddress,
+
+      customerPhone:
+        data.customerPhone ??
+        bills[index].customerPhone,
+
+      customerGst:
+        data.customerGst ??
+        bills[index].customerGst,
+
+      items:
+        Array.isArray(data.items)
+          ? data.items
+          : bills[index].items,
+
+      sgst:
+        data.sgst !== undefined
+          ? Number(data.sgst)
+          : bills[index].sgst,
+
+      cgst:
+        data.cgst !== undefined
+          ? Number(data.cgst)
+          : bills[index].cgst,
+
+      gst:
+        data.gst !== undefined
+          ? Number(data.gst)
+          : bills[index].gst,
+
+      total:
+        data.total !== undefined
+          ? Number(data.total)
+          : bills[index].total,
+
+      bank:
+        data.bank ||
+        bills[index].bank ||
+        'canara',
+
       type: 'bill',
+
       updatedAt:
         new Date().toISOString(),
     }
 
+    bills[index] = updatedBill
+
     writeBills(bills)
 
     return NextResponse.json(
-      bills[index]
+      updatedBill
     )
   } catch (error) {
     console.error(
@@ -128,8 +171,7 @@ export async function DELETE(
       return NextResponse.json(
         {
           success: false,
-          message:
-            'Bill not found',
+          message: 'Bill not found',
         },
         { status: 404 }
       )

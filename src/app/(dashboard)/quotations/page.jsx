@@ -8,105 +8,103 @@ import {
   FaTrash,
   FaPrint,
   FaEnvelope,
+  FaTimes,
   FaFileAlt,
-  FaSyncAlt,
-  FaArrowRight,
 } from 'react-icons/fa'
 
-import BillModal from '@/components/BillModal'
-
+import QuotationModal from '@/components/QuotationModal'
+import QuotationPrint from '@/components/QuotationPrint'
 export default function QuotationsPage() {
   const [quotations, setQuotations] = useState([])
   const [searchTerm, setSearchTerm] = useState('')
-
   const [showModal, setShowModal] = useState(false)
-  const [editingQuotation, setEditingQuotation] =
-    useState(null)
-
+  const [editingQuotation, setEditingQuotation] = useState(null)
+  const [selectedQuotation, setSelectedQuotation] = useState(null)
+  const [showQuotation, setShowQuotation] = useState(false)
   const [loading, setLoading] = useState(true)
-  const [refreshing, setRefreshing] = useState(false)
-  const [error, setError] = useState('')
+  const [sendingEmail, setSendingEmail] = useState(null)
 
-  // ==========================================
-  // FETCH QUOTATIONS
-  // ==========================================
+  const [message, setMessage] = useState({
+    type: '',
+    text: '',
+  })
+
   useEffect(() => {
     fetchQuotations()
   }, [])
 
+  const showMessage = (type, text) => {
+    setMessage({
+      type,
+      text,
+    })
+
+    setTimeout(() => {
+      setMessage({
+        type: '',
+        text: '',
+      })
+    }, 3000)
+  }
+
   const fetchQuotations = async () => {
     try {
-      setRefreshing(true)
-      setError('')
+      setLoading(true)
 
-      const response = await fetch(
-        '/api/quotations'
-      )
+      const response = await fetch('/api/quotations', {
+        cache: 'no-store',
+      })
 
       if (!response.ok) {
-        throw new Error(
-          'Failed to fetch quotations'
-        )
+        throw new Error('Failed to fetch quotations')
       }
 
       const data = await response.json()
 
-      const quotationData = Array.isArray(data)
-        ? data
-        : data?.quotations || []
-
-      setQuotations(quotationData)
+      setQuotations(Array.isArray(data) ? data : [])
     } catch (error) {
-      console.error(
-        'Error fetching quotations:',
-        error
-      )
-
-      setError(
-        'Unable to load quotations. Please try again.'
-      )
+      console.error('Error fetching quotations:', error)
+      showMessage('error', 'Unable to load quotations.')
     } finally {
       setLoading(false)
-      setRefreshing(false)
     }
   }
 
-  // ==========================================
-  // SAVE QUOTATION
-  // ==========================================
+  const handleNewQuotation = () => {
+    setEditingQuotation(null)
+    setShowModal(true)
+  }
+
+  const handleEdit = (quotation) => {
+    setEditingQuotation(quotation)
+    setShowModal(true)
+  }
+
   const handleSave = async (formData) => {
     try {
-      setError('')
+      const isEditing = Boolean(editingQuotation)
 
-      const quotationId =
-        editingQuotation?._id ||
-        editingQuotation?.id
-
-      const url = quotationId
-        ? `/api/quotations/${quotationId}`
+      const url = isEditing
+        ? `/api/quotations/${editingQuotation.id}`
         : '/api/quotations'
 
-      const method = quotationId
-        ? 'PUT'
-        : 'POST'
+      const method = isEditing ? 'PUT' : 'POST'
 
       const response = await fetch(url, {
         method,
         headers: {
-          'Content-Type':
-            'application/json',
+          'Content-Type': 'application/json',
         },
         body: JSON.stringify(formData),
       })
 
-      if (!response.ok) {
-        const data = await response
-          .json()
-          .catch(() => null)
+      const data = await response.json()
 
+      if (!response.ok) {
         throw new Error(
+          data?.error ||
           data?.message ||
-            'Failed to save quotation'
+          'Failed to save quotation'
         )
       }
 
@@ -114,37 +112,22 @@ export default function QuotationsPage() {
 
       setShowModal(false)
       setEditingQuotation(null)
-    } catch (error) {
-      console.error(
-        'Error saving quotation:',
-        error
-      )
 
-      setError(
-        error.message ||
-          'Unable to save quotation.'
+      showMessage(
+        'success',
+        isEditing
+          ? 'Quotation updated successfully.'
+          : 'Quotation created successfully.'
       )
+    } catch (error) {
+      console.error('Error saving quotation:', error)
+      showMessage('error', error.message)
     }
   }
 
-  // ==========================================
-  // DELETE QUOTATION
-  // ==========================================
-  const handleDelete = async (
-    quotation
-  ) => {
-    const quotationId =
-      quotation?._id ||
-      quotation?.id
-
-    if (!quotationId) {
-      return
-    }
-
+  const handleDelete = async (id) => {
     const confirmed = window.confirm(
-      `Are you sure you want to delete quotation ${
-        quotation.number || ''
-      }?`
+      'Are you sure you want to delete this quotation?'
     )
 
     if (!confirmed) {
@@ -152,1321 +135,582 @@ export default function QuotationsPage() {
     }
 
     try {
-      setError('')
+      const response = await fetch(`/api/quotations/${id}`, {
+        method: 'DELETE',
+      })
 
-      const response = await fetch(
-        `/api/quotations/${quotationId}`,
-        {
-          method: 'DELETE',
-        }
-      )
+      const data = await response.json()
 
       if (!response.ok) {
         throw new Error(
-          'Failed to delete quotation'
+          data?.error || 'Failed to delete quotation'
         )
       }
 
       await fetchQuotations()
-    } catch (error) {
-      console.error(
-        'Error deleting quotation:',
-        error
-      )
 
-      setError(
-        'Unable to delete the quotation.'
+      showMessage(
+        'success',
+        'Quotation deleted successfully.'
       )
+    } catch (error) {
+      console.error('Error deleting quotation:', error)
+      showMessage('error', 'Failed to delete quotation.')
     }
   }
 
-  // ==========================================
-  // PRINT
-  // ==========================================
   const handlePrint = (quotation) => {
-    window.print()
+    setSelectedQuotation(quotation)
+    setShowQuotation(true)
   }
 
-  // ==========================================
-  // EMAIL
-  // ==========================================
-  const handleEmail = async (
-    quotation
-  ) => {
+  const closeQuotation = () => {
+    setShowQuotation(false)
+    setSelectedQuotation(null)
+  }
+
+  const handleSendEmail = async (quotation) => {
     if (!quotation?.customerEmail) {
-      alert(
-        'Customer email is not available.'
+      showMessage(
+        'error',
+        'Customer email is not available for this quotation.'
       )
       return
     }
 
-    try {
-      const response = await fetch(
-        '/api/send-email',
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type':
-              'application/json',
-          },
-          body: JSON.stringify({
-            to: quotation.customerEmail,
-            quotation,
-            type: 'quotation',
-          }),
-        }
-      )
+    const confirmed = window.confirm(
+      `Send quotation ${quotation.number || ''} to ${quotation.customerEmail}?`
+    )
 
-      if (!response.ok) {
+    if (!confirmed) {
+      return
+    }
+
+    try {
+      setSendingEmail(quotation.id)
+
+      const response = await fetch('/api/send-email', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          to: quotation.customerEmail,
+          bill: quotation,
+          type: 'quotation',
+        }),
+      })
+
+      const data = await response.json()
+
+      if (!response.ok || !data.success) {
         throw new Error(
-          'Failed to send quotation'
+          data?.message || 'Failed to send email'
         )
       }
 
-      alert(
-        'Quotation sent successfully!'
+      showMessage(
+        'success',
+        `Quotation sent to ${quotation.customerEmail}`
       )
     } catch (error) {
-      console.error(
-        'Email error:',
-        error
-      )
+      console.error('Email error:', error)
 
-      alert(
-        'Unable to send quotation email.'
+      showMessage(
+        'error',
+        error.message || 'Failed to send email.'
       )
+    } finally {
+      setSendingEmail(null)
     }
   }
 
-  // ==========================================
-  // SEARCH
-  // ==========================================
-  const filteredQuotations =
-    quotations.filter((quotation) => {
-      const search =
-        searchTerm
-          .toLowerCase()
-          .trim()
+  const filteredQuotations = quotations.filter((quotation) => {
+    const search = searchTerm.toLowerCase().trim()
 
-      if (!search) {
-        return true
-      }
-
-      return (
-        quotation.number
-          ?.toLowerCase()
-          .includes(search) ||
-        quotation.customer
-          ?.toLowerCase()
-          .includes(search) ||
-        quotation.customerGst
-          ?.toLowerCase()
-          .includes(search) ||
-        quotation.status
-          ?.toLowerCase()
-          .includes(search)
-      )
-    })
-
-  // ==========================================
-  // STATISTICS
-  // ==========================================
-  const totalAmount =
-    quotations.reduce(
-      (sum, quotation) =>
-        sum +
-        Number(
-          quotation.total || 0
-        ),
-      0
-    )
-
-  const approvedQuotations =
-    quotations.filter(
-      (quotation) =>
-        String(
-          quotation.status || ''
-        ).toLowerCase() ===
-        'approved'
-    ).length
-
-  const draftQuotations =
-    quotations.filter(
-      (quotation) =>
-        String(
-          quotation.status || 'draft'
-        ).toLowerCase() ===
-        'draft'
-    ).length
-
-  // ==========================================
-  // FORMAT CURRENCY
-  // ==========================================
-  const formatCurrency = (amount) => {
-    return `₹${Number(
-      amount || 0
-    ).toLocaleString('en-IN')}`
-  }
-
-  // ==========================================
-  // FORMAT DATE
-  // ==========================================
-  const formatDate = (date) => {
-    if (!date) {
-      return '-'
+    if (!search) {
+      return true
     }
 
-    const parsedDate =
-      new Date(date)
-
-    if (
-      Number.isNaN(
-        parsedDate.getTime()
-      )
-    ) {
-      return date
-    }
-
-    return parsedDate.toLocaleDateString(
-      'en-IN',
-      {
-        day: '2-digit',
-        month: 'short',
-        year: 'numeric',
-      }
-    )
-  }
-
-  // ==========================================
-  // CREATE
-  // ==========================================
-  const handleCreate = () => {
-    setEditingQuotation(null)
-    setShowModal(true)
-  }
-
-  // ==========================================
-  // EDIT
-  // ==========================================
-  const handleEdit = (
-    quotation
-  ) => {
-    setEditingQuotation(quotation)
-    setShowModal(true)
-  }
-
-  // ==========================================
-  // LOADING
-  // ==========================================
-  if (loading) {
     return (
-      <div className="mx-auto w-full max-w-[1500px] space-y-6">
-
-        <div className="animate-pulse">
-
-          <div className="h-4 w-24 rounded bg-slate-200" />
-
-          <div className="mt-2 h-8 w-44 rounded bg-slate-200" />
-
-          <div className="mt-2 h-4 w-80 rounded bg-slate-200" />
-
-        </div>
-
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-
-          {[1, 2, 3, 4].map(
-            (item) => (
-              <div
-                key={item}
-                className="
-                  h-28
-                  animate-pulse
-                  rounded-2xl
-                  bg-slate-200
-                "
-              />
-            )
-          )}
-
-        </div>
-
-        <div className="
-          h-96
-          animate-pulse
-          rounded-2xl
-          bg-slate-200
-        " />
-
-      </div>
+      quotation.number?.toLowerCase().includes(search) ||
+      quotation.customer?.toLowerCase().includes(search) ||
+      quotation.customerEmail?.toLowerCase().includes(search) ||
+      quotation.customerPhone?.toLowerCase().includes(search)
     )
+  })
+
+  const formatMoney = (amount) => {
+    return `₹${Number(amount || 0).toLocaleString('en-IN', {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    })}`
+  }
+
+  const getStatusClass = (status) => {
+    switch (String(status || 'draft').toLowerCase()) {
+      case 'approved':
+        return 'bg-green-50 text-green-700 border-green-100'
+
+      case 'rejected':
+        return 'bg-red-50 text-red-700 border-red-100'
+
+      case 'sent':
+        return 'bg-blue-50 text-blue-700 border-blue-100'
+
+      default:
+        return 'bg-orange-50 text-orange-700 border-orange-100'
+    }
   }
 
   return (
-    <div className="mx-auto w-full max-w-[1500px] space-y-6">
+    <div className="min-h-full">
 
-      {/* ======================================
-          PAGE HEADER
-      ======================================= */}
-      <div className="
-        flex
-        flex-col
-        gap-4
-        sm:flex-row
-        sm:items-end
-        sm:justify-between
-      ">
-
-        <div>
-
-          <p className="
-            text-xs
-            font-semibold
-            uppercase
-            tracking-wider
-            text-blue-500
-          ">
-            Sales
-          </p>
-
-          <h1 className="
-            mt-1
-            text-2xl
-            font-bold
-            tracking-tight
-            text-slate-800
-            sm:text-3xl
-          ">
-            Quotations
-          </h1>
-
-          <p className="
-            mt-1
-            text-sm
-            text-slate-500
-          ">
-            Create, manage and track your customer quotations.
-          </p>
-
-        </div>
-
-        <div className="flex items-center gap-2">
-
-          {/* Refresh */}
-          <button
-            type="button"
-            onClick={fetchQuotations}
-            disabled={refreshing}
-            className="
-              flex
-              items-center
-              gap-2
-              rounded-xl
-              border
-              border-slate-200
-              bg-white
-              px-4
-              py-2.5
-              text-sm
-              font-semibold
-              text-slate-600
-              shadow-sm
-              transition
-              hover:border-blue-200
-              hover:bg-blue-50
-              hover:text-blue-500
-              disabled:opacity-60
-            "
-          >
-
-            <FaSyncAlt
-              className={
-                refreshing
-                  ? 'animate-spin'
-                  : ''
-              }
-            />
-
-            <span className="hidden sm:inline">
-              {refreshing
-                ? 'Refreshing...'
-                : 'Refresh'}
-            </span>
-
-          </button>
-
-          {/* New Quotation */}
-          <button
-            type="button"
-            onClick={handleCreate}
-            className="
-              flex
-              items-center
-              gap-2
-              rounded-xl
-              bg-blue-500
-              px-4
-              py-2.5
-              text-sm
-              font-semibold
-              text-white
-              shadow-md
-              shadow-blue-100
-              transition
-              hover:bg-blue-600
-            "
-          >
-
-            <FaPlus />
-
-            <span>
-              New Quotation
-            </span>
-
-          </button>
-
-        </div>
-
-      </div>
-
-      {/* ======================================
-          ERROR
-      ======================================= */}
-      {error && (
-        <div className="
-          flex
-          items-center
-          justify-between
-          rounded-xl
-          border
-          border-red-100
-          bg-red-50
-          px-4
-          py-3
-        ">
-
-          <p className="text-sm text-red-600">
-            {error}
-          </p>
-
-          <button
-            type="button"
-            onClick={fetchQuotations}
-            className="
-              text-sm
-              font-semibold
-              text-red-600
-              hover:text-red-700
-            "
-          >
-            Try again
-          </button>
-
+      {message.text && (
+        <div
+          className={`fixed right-4 top-20 z-[200] max-w-sm rounded-xl border px-4 py-3 text-sm font-medium shadow-lg ${message.type === 'success'
+              ? 'border-green-100 bg-green-50 text-green-700'
+              : 'border-red-100 bg-red-50 text-red-700'
+            }`}
+        >
+          {message.text}
         </div>
       )}
 
-      {/* ======================================
-          SUMMARY CARDS
-      ======================================= */}
-      <div className="
-        grid
-        grid-cols-1
-        gap-4
-        sm:grid-cols-2
-        xl:grid-cols-4
-      ">
+      <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
 
-        {/* Total Quotations */}
-        <div className="
-          rounded-2xl
-          border
-          border-slate-100
-          bg-white
-          p-5
-          shadow-sm
-        ">
+        <div>
+          <div className="flex items-center gap-2">
+            <h1 className="text-2xl font-bold text-slate-800">
+              Quotations
+            </h1>
 
-          <div className="flex items-center justify-between">
-
-            <div>
-
-              <p className="
-                text-sm
-                font-medium
-                text-slate-500
-              ">
-                Total Quotations
-              </p>
-
-              <p className="
-                mt-2
-                text-2xl
-                font-bold
-                text-slate-800
-              ">
-                {quotations.length}
-              </p>
-
-              <p className="
-                mt-1
-                text-xs
-                text-slate-400
-              ">
-                All quotations
-              </p>
-
-            </div>
-
-            <div className="
-              flex
-              h-11
-              w-11
-              items-center
-              justify-center
-              rounded-xl
-              bg-blue-50
-              text-blue-500
-            ">
-              <FaFileAlt />
-            </div>
-
+            <span className="rounded-full bg-blue-50 px-2.5 py-1 text-xs font-semibold text-blue-600">
+              {quotations.length}
+            </span>
           </div>
 
+          <p className="mt-1 text-sm text-slate-500">
+            Create, manage and send your quotations
+          </p>
         </div>
 
-        {/* Total Amount */}
-        <div className="
-          rounded-2xl
-          border
-          border-slate-100
-          bg-white
-          p-5
-          shadow-sm
-        ">
-
-          <div className="flex items-center justify-between">
-
-            <div>
-
-              <p className="
-                text-sm
-                font-medium
-                text-slate-500
-              ">
-                Total Amount
-              </p>
-
-              <p className="
-                mt-2
-                text-2xl
-                font-bold
-                text-slate-800
-              ">
-                {formatCurrency(
-                  totalAmount
-                )}
-              </p>
-
-              <p className="
-                mt-1
-                text-xs
-                text-slate-400
-              ">
-                Total quotation value
-              </p>
-
-            </div>
-
-            <div className="
-              flex
-              h-11
-              w-11
-              items-center
-              justify-center
-              rounded-xl
-              bg-emerald-50
-              text-emerald-500
-              font-bold
-            ">
-              ₹
-            </div>
-
-          </div>
-
-        </div>
-
-        {/* Approved */}
-        <div className="
-          rounded-2xl
-          border
-          border-slate-100
-          bg-white
-          p-5
-          shadow-sm
-        ">
-
-          <div className="flex items-center justify-between">
-
-            <div>
-
-              <p className="
-                text-sm
-                font-medium
-                text-slate-500
-              ">
-                Approved
-              </p>
-
-              <p className="
-                mt-2
-                text-2xl
-                font-bold
-                text-slate-800
-              ">
-                {approvedQuotations}
-              </p>
-
-              <p className="
-                mt-1
-                text-xs
-                text-slate-400
-              ">
-                Approved quotations
-              </p>
-
-            </div>
-
-            <div className="
-              flex
-              h-11
-              w-11
-              items-center
-              justify-center
-              rounded-xl
-              bg-green-50
-              text-green-500
-              font-bold
-            ">
-              ✓
-            </div>
-
-          </div>
-
-        </div>
-
-        {/* Draft */}
-        <div className="
-          rounded-2xl
-          border
-          border-slate-100
-          bg-white
-          p-5
-          shadow-sm
-        ">
-
-          <div className="flex items-center justify-between">
-
-            <div>
-
-              <p className="
-                text-sm
-                font-medium
-                text-slate-500
-              ">
-                Draft
-              </p>
-
-              <p className="
-                mt-2
-                text-2xl
-                font-bold
-                text-slate-800
-              ">
-                {draftQuotations}
-              </p>
-
-              <p className="
-                mt-1
-                text-xs
-                text-slate-400
-              ">
-                Unapproved quotations
-              </p>
-
-            </div>
-
-            <div className="
-              flex
-              h-11
-              w-11
-              items-center
-              justify-center
-              rounded-xl
-              bg-orange-50
-              text-orange-500
-              font-bold
-            ">
-              !
-            </div>
-
-          </div>
-
-        </div>
-
+        <button
+          type="button"
+          onClick={handleNewQuotation}
+          className="flex w-full items-center justify-center gap-2 rounded-xl bg-blue-600 px-5 py-3 text-sm font-semibold text-white transition hover:bg-blue-700 sm:w-auto"
+        >
+          <FaPlus />
+          New Quotation
+        </button>
       </div>
 
-      {/* ======================================
-          QUOTATIONS TABLE
-      ======================================= */}
-      <div className="
-        overflow-hidden
-        rounded-2xl
-        border
-        border-slate-100
-        bg-white
-        shadow-sm
-      ">
+      <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
 
-        {/* Header */}
-        <div className="
-          flex
-          flex-col
-          gap-4
-          border-b
-          border-slate-100
-          p-5
-          sm:flex-row
-          sm:items-center
-          sm:justify-between
-          sm:px-6
-        ">
+        <div className="border-b border-slate-100 p-4 sm:p-5">
 
-          <div>
+          <div className="relative max-w-xl">
 
-            <h2 className="
-              text-base
-              font-bold
-              text-slate-800
-            ">
-              All Quotations
-            </h2>
-
-            <p className="
-              mt-1
-              text-xs
-              text-slate-400
-            ">
-              Manage quotation details and status
-            </p>
-
-          </div>
-
-          {/* Search */}
-          <div className="
-            relative
-            w-full
-            sm:w-72
-          ">
-
-            <FaSearch className="
-              absolute
-              left-3
-              top-1/2
-              -translate-y-1/2
-              text-xs
-              text-slate-400
-            " />
+            <FaSearch className="absolute left-3.5 top-1/2 -translate-y-1/2 text-sm text-slate-400" />
 
             <input
               type="text"
               value={searchTerm}
-              onChange={(e) =>
-                setSearchTerm(
-                  e.target.value
-                )
-              }
-              placeholder="Search quotations..."
-              className="
-                w-full
-                rounded-xl
-                border
-                border-slate-200
-                bg-slate-50
-                py-2.5
-                pl-9
-                pr-4
-                text-sm
-                text-slate-700
-                outline-none
-                transition
-                placeholder:text-slate-400
-                focus:border-blue-400
-                focus:bg-white
-                focus:ring-4
-                focus:ring-blue-50
-              "
+              onChange={(e) => setSearchTerm(e.target.value)}
+              placeholder="Search quotation number, customer, email..."
+              className="w-full rounded-xl border border-slate-200 bg-slate-50 py-3 pl-10 pr-4 text-sm text-slate-700 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:bg-white focus:ring-4 focus:ring-blue-50"
             />
 
           </div>
 
         </div>
 
-        {/* ====================================
-            EMPTY STATE
-        ===================================== */}
-        {filteredQuotations.length === 0 ? (
+        {loading ? (
+          <div className="flex min-h-[300px] items-center justify-center">
 
-          <div className="
-            flex
-            flex-col
-            items-center
-            justify-center
-            px-5
-            py-14
-            text-center
-          ">
+            <div className="text-center">
 
-            <div className="
-              flex
-              h-16
-              w-16
-              items-center
-              justify-center
-              rounded-2xl
-              bg-blue-50
-            ">
-              <FaFileAlt className="
-                text-2xl
-                text-blue-400
-              " />
+              <div className="mx-auto h-9 w-9 animate-spin rounded-full border-4 border-blue-100 border-t-blue-600" />
+
+              <p className="mt-3 text-sm text-slate-500">
+                Loading quotations...
+              </p>
+
             </div>
 
-            <h3 className="
-              mt-4
-              text-sm
-              font-bold
-              text-slate-700
-            ">
-              {searchTerm
-                ? 'No quotations found'
-                : 'No quotations yet'}
-            </h3>
-
-            <p className="
-              mt-1
-              max-w-md
-              text-xs
-              leading-5
-              text-slate-400
-            ">
-              {searchTerm
-                ? 'Try searching with a different quotation number or customer name.'
-                : 'Create your first quotation to start managing your sales records.'}
-            </p>
-
-            {!searchTerm && (
-              <button
-                type="button"
-                onClick={handleCreate}
-                className="
-                  mt-5
-                  flex
-                  items-center
-                  gap-2
-                  rounded-xl
-                  bg-blue-500
-                  px-4
-                  py-2.5
-                  text-xs
-                  font-semibold
-                  text-white
-                  shadow-md
-                  shadow-blue-100
-                  transition
-                  hover:bg-blue-600
-                "
-              >
-                <FaPlus />
-                Create First Quotation
-              </button>
-            )}
-
           </div>
-
         ) : (
+          <>
+            <div className="hidden overflow-x-auto md:block">
 
-          /* ====================================
-             TABLE
-          ===================================== */
-          <div className="overflow-x-auto">
+              <table className="w-full">
 
-            <table className="
-              w-full
-              min-w-[950px]
-            ">
+                <thead>
+                  <tr className="border-b border-slate-100 bg-slate-50/70">
 
-              <thead>
+                    <th className="px-5 py-4 text-left text-xs font-bold uppercase tracking-wider text-slate-500">
+                      Quote No.
+                    </th>
 
-                <tr className="
-                  border-b
-                  border-slate-100
-                  bg-slate-50/70
-                ">
+                    <th className="px-5 py-4 text-left text-xs font-bold uppercase tracking-wider text-slate-500">
+                      Customer
+                    </th>
 
-                  <th className="
-                    px-6
-                    py-3.5
-                    text-left
-                    text-[10px]
-                    font-bold
-                    uppercase
-                    tracking-wider
-                    text-slate-400
-                  ">
-                    Quote No.
-                  </th>
+                    <th className="px-5 py-4 text-left text-xs font-bold uppercase tracking-wider text-slate-500">
+                      Date
+                    </th>
 
-                  <th className="
-                    px-4
-                    py-3.5
-                    text-left
-                    text-[10px]
-                    font-bold
-                    uppercase
-                    tracking-wider
-                    text-slate-400
-                  ">
-                    Customer
-                  </th>
+                    <th className="px-5 py-4 text-right text-xs font-bold uppercase tracking-wider text-slate-500">
+                      Amount
+                    </th>
 
-                  <th className="
-                    px-4
-                    py-3.5
-                    text-left
-                    text-[10px]
-                    font-bold
-                    uppercase
-                    tracking-wider
-                    text-slate-400
-                  ">
-                    Date
-                  </th>
+                    <th className="px-5 py-4 text-center text-xs font-bold uppercase tracking-wider text-slate-500">
+                      Status
+                    </th>
 
-                  <th className="
-                    px-4
-                    py-3.5
-                    text-right
-                    text-[10px]
-                    font-bold
-                    uppercase
-                    tracking-wider
-                    text-slate-400
-                  ">
-                    Amount
-                  </th>
+                    <th className="px-5 py-4 text-center text-xs font-bold uppercase tracking-wider text-slate-500">
+                      Actions
+                    </th>
 
-                  <th className="
-                    px-4
-                    py-3.5
-                    text-center
-                    text-[10px]
-                    font-bold
-                    uppercase
-                    tracking-wider
-                    text-slate-400
-                  ">
-                    Status
-                  </th>
+                  </tr>
+                </thead>
 
-                  <th className="
-                    px-6
-                    py-3.5
-                    text-center
-                    text-[10px]
-                    font-bold
-                    uppercase
-                    tracking-wider
-                    text-slate-400
-                  ">
-                    Actions
-                  </th>
+                <tbody>
 
-                </tr>
+                  {filteredQuotations.map((quotation) => (
+                    <tr
+                      key={quotation.id}
+                      className="border-b border-slate-100 transition last:border-0 hover:bg-blue-50/30"
+                    >
 
-              </thead>
+                      <td className="px-5 py-4">
+                        <span className="font-semibold text-slate-800">
+                          {quotation.number || '-'}
+                        </span>
+                      </td>
 
-              <tbody>
+                      <td className="px-5 py-4">
 
-                {filteredQuotations.map(
-                  (quotation) => {
+                        <p className="font-medium text-slate-700">
+                          {quotation.customer || '-'}
+                        </p>
 
-                    const quotationId =
-                      quotation._id ||
-                      quotation.id
-
-                    const status =
-                      String(
-                        quotation.status ||
-                          'draft'
-                      ).toLowerCase()
-
-                    const isApproved =
-                      status ===
-                      'approved'
-
-                    return (
-                      <tr
-                        key={
-                          quotationId
-                        }
-                        className="
-                          border-b
-                          border-slate-50
-                          transition
-                          last:border-0
-                          hover:bg-blue-50/30
-                        "
-                      >
-
-                        {/* Quote Number */}
-                        <td className="
-                          px-6
-                          py-4
-                        ">
-
-                          <div className="
-                            flex
-                            items-center
-                            gap-3
-                          ">
-
-                            <div className="
-                              flex
-                              h-9
-                              w-9
-                              shrink-0
-                              items-center
-                              justify-center
-                              rounded-lg
-                              bg-blue-50
-                              text-blue-500
-                            ">
-                              <FaFileAlt className="text-sm" />
-                            </div>
-
-                            <span className="
-                              text-sm
-                              font-bold
-                              text-slate-700
-                            ">
-                              {quotation.number ||
-                                '-'}
-                            </span>
-
-                          </div>
-
-                        </td>
-
-                        {/* Customer */}
-                        <td className="
-                          px-4
-                          py-4
-                        ">
-
-                          <p className="
-                            text-sm
-                            font-medium
-                            text-slate-700
-                          ">
-                            {quotation.customer ||
-                              '-'}
+                        {quotation.customerEmail && (
+                          <p className="mt-0.5 max-w-[220px] truncate text-xs text-slate-400">
+                            {quotation.customerEmail}
                           </p>
+                        )}
 
-                          {quotation.customerGst && (
-                            <p className="
-                              mt-0.5
-                              text-[10px]
-                              uppercase
-                              text-slate-400
-                            ">
-                              GST:{' '}
-                              {
-                                quotation.customerGst
-                              }
-                            </p>
-                          )}
+                      </td>
 
-                        </td>
+                      <td className="px-5 py-4 text-sm text-slate-500">
+                        {quotation.date || '-'}
+                      </td>
 
-                        {/* Date */}
-                        <td className="
-                          px-4
-                          py-4
-                        ">
+                      <td className="px-5 py-4 text-right">
+                        <span className="font-semibold text-slate-800">
+                          {formatMoney(quotation.total)}
+                        </span>
+                      </td>
 
-                          <span className="
-                            text-sm
-                            text-slate-500
-                          ">
-                            {formatDate(
-                              quotation.date ||
-                                quotation.createdAt
-                            )}
-                          </span>
+                      <td className="px-5 py-4 text-center">
 
-                        </td>
+                        <span
+                          className={`inline-flex rounded-full border px-3 py-1 text-xs font-semibold capitalize ${getStatusClass(
+                            quotation.status
+                          )}`}
+                        >
+                          {quotation.status || 'draft'}
+                        </span>
 
-                        {/* Amount */}
-                        <td className="
-                          px-4
-                          py-4
-                          text-right
-                        ">
+                      </td>
 
-                          <span className="
-                            text-sm
-                            font-bold
-                            text-slate-700
-                          ">
-                            {formatCurrency(
-                              quotation.total
-                            )}
-                          </span>
+                      <td className="px-5 py-4">
 
-                        </td>
+                        <div className="flex items-center justify-center gap-1">
 
-                        {/* Status */}
-                        <td className="
-                          px-4
-                          py-4
-                          text-center
-                        ">
-
-                          <span
-                            className={`
-                              inline-flex
-                              rounded-full
-                              px-3
-                              py-1
-                              text-[10px]
-                              font-bold
-                              capitalize
-                              ${
-                                isApproved
-                                  ? 'bg-green-50 text-green-600'
-                                  : 'bg-orange-50 text-orange-600'
-                              }
-                            `}
+                          <button
+                            type="button"
+                            onClick={() => handlePrint(quotation)}
+                            title="Print Quotation"
+                            className="flex h-9 w-9 items-center justify-center rounded-lg text-slate-400 transition hover:bg-blue-50 hover:text-blue-600"
                           >
-                            {status}
-                          </span>
+                            <FaPrint />
+                          </button>
 
-                        </td>
+                          <button
+                            type="button"
+                            onClick={() => handleEdit(quotation)}
+                            title="Edit Quotation"
+                            className="flex h-9 w-9 items-center justify-center rounded-lg text-slate-400 transition hover:bg-green-50 hover:text-green-600"
+                          >
+                            <FaEdit />
+                          </button>
 
-                        {/* Actions */}
-                        <td className="
-                          px-6
-                          py-4
-                        ">
+                          <button
+                            type="button"
+                            onClick={() => handleSendEmail(quotation)}
+                            disabled={sendingEmail === quotation.id}
+                            title={
+                              quotation.customerEmail
+                                ? 'Send Email'
+                                : 'Customer email not available'
+                            }
+                            className="flex h-9 w-9 items-center justify-center rounded-lg text-slate-400 transition hover:bg-purple-50 hover:text-purple-600 disabled:cursor-not-allowed disabled:opacity-40"
+                          >
+                            {sendingEmail === quotation.id ? (
+                              <span className="h-4 w-4 animate-spin rounded-full border-2 border-purple-200 border-t-purple-600" />
+                            ) : (
+                              <FaEnvelope />
+                            )}
+                          </button>
 
-                          <div className="
-                            flex
-                            items-center
-                            justify-center
-                            gap-1
-                          ">
+                          <button
+                            type="button"
+                            onClick={() => handleDelete(quotation.id)}
+                            title="Delete Quotation"
+                            className="flex h-9 w-9 items-center justify-center rounded-lg text-slate-400 transition hover:bg-red-50 hover:text-red-600"
+                          >
+                            <FaTrash />
+                          </button>
 
-                            {/* Print */}
-                            <button
-                              type="button"
-                              onClick={() =>
-                                handlePrint(
-                                  quotation
-                                )
-                              }
-                              title="Print"
-                              className="
-                                flex
-                                h-8
-                                w-8
-                                items-center
-                                justify-center
-                                rounded-lg
-                                text-slate-400
-                                transition
-                                hover:bg-blue-50
-                                hover:text-blue-500
-                              "
-                            >
-                              <FaPrint className="text-xs" />
-                            </button>
+                        </div>
 
-                            {/* Edit */}
-                            <button
-                              type="button"
-                              onClick={() =>
-                                handleEdit(
-                                  quotation
-                                )
-                              }
-                              title="Edit"
-                              className="
-                                flex
-                                h-8
-                                w-8
-                                items-center
-                                justify-center
-                                rounded-lg
-                                text-slate-400
-                                transition
-                                hover:bg-green-50
-                                hover:text-green-500
-                              "
-                            >
-                              <FaEdit className="text-xs" />
-                            </button>
+                      </td>
 
-                            {/* Email */}
-                            <button
-                              type="button"
-                              onClick={() =>
-                                handleEmail(
-                                  quotation
-                                )
-                              }
-                              title="Send Email"
-                              className="
-                                flex
-                                h-8
-                                w-8
-                                items-center
-                                justify-center
-                                rounded-lg
-                                text-slate-400
-                                transition
-                                hover:bg-sky-50
-                                hover:text-sky-500
-                              "
-                            >
-                              <FaEnvelope className="text-xs" />
-                            </button>
+                    </tr>
+                  ))}
 
-                            {/* Delete */}
-                            <button
-                              type="button"
-                              onClick={() =>
-                                handleDelete(
-                                  quotation
-                                )
-                              }
-                              title="Delete"
-                              className="
-                                flex
-                                h-8
-                                w-8
-                                items-center
-                                justify-center
-                                rounded-lg
-                                text-slate-400
-                                transition
-                                hover:bg-red-50
-                                hover:text-red-500
-                              "
-                            >
-                              <FaTrash className="text-xs" />
-                            </button>
+                </tbody>
 
-                          </div>
+              </table>
 
-                        </td>
+            </div>
 
-                      </tr>
-                    )
-                  }
+            <div className="space-y-3 p-4 md:hidden">
+
+              {filteredQuotations.map((quotation) => (
+                <div
+                  key={quotation.id}
+                  className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm"
+                >
+
+                  <div className="flex items-start justify-between gap-3">
+
+                    <div>
+
+                      <p className="text-xs font-semibold uppercase tracking-wider text-blue-500">
+                        Quotation
+                      </p>
+
+                      <h3 className="mt-1 font-bold text-slate-800">
+                        {quotation.number || '-'}
+                      </h3>
+
+                    </div>
+
+                    <span
+                      className={`rounded-full border px-2.5 py-1 text-[10px] font-semibold capitalize ${getStatusClass(
+                        quotation.status
+                      )}`}
+                    >
+                      {quotation.status || 'draft'}
+                    </span>
+
+                  </div>
+
+                  <div className="mt-4">
+
+                    <p className="text-sm font-semibold text-slate-700">
+                      {quotation.customer || '-'}
+                    </p>
+
+                    {quotation.customerEmail && (
+                      <p className="mt-1 break-all text-xs text-slate-400">
+                        {quotation.customerEmail}
+                      </p>
+                    )}
+
+                  </div>
+
+                  <div className="mt-4 grid grid-cols-2 gap-3">
+
+                    <div className="rounded-lg bg-slate-50 p-3">
+
+                      <p className="text-[10px] font-semibold uppercase text-slate-400">
+                        Date
+                      </p>
+
+                      <p className="mt-1 text-xs font-semibold text-slate-700">
+                        {quotation.date || '-'}
+                      </p>
+
+                    </div>
+
+                    <div className="rounded-lg bg-slate-50 p-3">
+
+                      <p className="text-[10px] font-semibold uppercase text-slate-400">
+                        Amount
+                      </p>
+
+                      <p className="mt-1 text-sm font-bold text-blue-600">
+                        {formatMoney(quotation.total)}
+                      </p>
+
+                    </div>
+
+                  </div>
+
+                  <div className="mt-4 grid grid-cols-4 gap-2">
+
+                    <button
+                      type="button"
+                      onClick={() => handlePrint(quotation)}
+                      className="flex h-10 items-center justify-center rounded-lg bg-blue-50 text-blue-600 hover:bg-blue-100"
+                      title="Print"
+                    >
+                      <FaPrint />
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => handleEdit(quotation)}
+                      className="flex h-10 items-center justify-center rounded-lg bg-green-50 text-green-600 hover:bg-green-100"
+                      title="Edit"
+                    >
+                      <FaEdit />
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => handleSendEmail(quotation)}
+                      disabled={sendingEmail === quotation.id}
+                      className="flex h-10 items-center justify-center rounded-lg bg-purple-50 text-purple-600 hover:bg-purple-100 disabled:opacity-40"
+                      title="Email"
+                    >
+                      {sendingEmail === quotation.id ? (
+                        <span className="h-4 w-4 animate-spin rounded-full border-2 border-purple-200 border-t-purple-600" />
+                      ) : (
+                        <FaEnvelope />
+                      )}
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => handleDelete(quotation.id)}
+                      className="flex h-10 items-center justify-center rounded-lg bg-red-50 text-red-600 hover:bg-red-100"
+                      title="Delete"
+                    >
+                      <FaTrash />
+                    </button>
+
+                  </div>
+
+                </div>
+              ))}
+
+            </div>
+
+            {filteredQuotations.length === 0 && (
+              <div className="px-5 py-16 text-center">
+
+                <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-blue-50 text-blue-500">
+                  <FaFileAlt className="text-xl" />
+                </div>
+
+                <h3 className="mt-4 font-semibold text-slate-700">
+                  {searchTerm
+                    ? 'No quotations found'
+                    : 'No quotations yet'}
+                </h3>
+
+                <p className="mt-1 text-sm text-slate-400">
+                  {searchTerm
+                    ? 'Try changing your search.'
+                    : 'Create your first quotation to get started.'}
+                </p>
+
+                {!searchTerm && (
+                  <button
+                    type="button"
+                    onClick={handleNewQuotation}
+                    className="mt-5 inline-flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-blue-700"
+                  >
+                    <FaPlus />
+                    Create Quotation
+                  </button>
                 )}
 
-              </tbody>
-
-            </table>
-
-          </div>
-        )}
-
-        {/* ====================================
-            FOOTER
-        ===================================== */}
-        {filteredQuotations.length > 0 && (
-          <div className="
-            flex
-            items-center
-            justify-between
-            border-t
-            border-slate-100
-            px-5
-            py-4
-            sm:px-6
-          ">
-
-            <p className="
-              text-xs
-              text-slate-400
-            ">
-              Showing{' '}
-              <span className="
-                font-semibold
-                text-slate-600
-              ">
-                {filteredQuotations.length}
-              </span>{' '}
-              of{' '}
-              <span className="
-                font-semibold
-                text-slate-600
-              ">
-                {quotations.length}
-              </span>{' '}
-              quotations
-            </p>
-
-            <button
-              type="button"
-              onClick={() =>
-                window.scrollTo({
-                  top: 0,
-                  behavior: 'smooth',
-                })
-              }
-              className="
-                hidden
-                items-center
-                gap-2
-                text-xs
-                font-semibold
-                text-blue-500
-                hover:text-blue-600
-                sm:flex
-              "
-            >
-              Back to top
-              <FaArrowRight className="-rotate-90 text-[9px]" />
-            </button>
-
-          </div>
+              </div>
+            )}
+          </>
         )}
 
       </div>
 
-      {/* ======================================
+      {/* =================================================
           QUOTATION MODAL
-      ======================================= */}
-      <BillModal
+      ================================================= */}
+
+      <QuotationModal
         isOpen={showModal}
         onClose={() => {
           setShowModal(false)
           setEditingQuotation(null)
         }}
         onSave={handleSave}
-        editingBill={editingQuotation}
+        editingQuotation={editingQuotation}
       />
+
+      {/* =================================================
+          PRINT PREVIEW
+      ================================================= */}
+
+      {showQuotation && selectedQuotation && (
+        <div className="fixed inset-0 z-[150] overflow-y-auto bg-slate-900/60 p-2 backdrop-blur-sm sm:p-5">
+
+          <div className="no-print sticky top-0 z-10 mx-auto mb-3 flex max-w-[794px] items-center justify-between rounded-xl bg-white px-4 py-3 shadow-lg">
+
+            <div>
+              <p className="text-sm font-bold text-slate-800">
+                Quotation Preview
+              </p>
+
+              <p className="text-xs text-slate-400">
+                {selectedQuotation.number || '-'}
+              </p>
+            </div>
+
+            <div className="flex items-center gap-2">
+
+              <button
+                type="button"
+                onClick={() => window.print()}
+                className="flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700"
+              >
+                <FaPrint />
+                Print
+              </button>
+
+              <button
+                type="button"
+                onClick={closeQuotation}
+                className="flex h-9 w-9 items-center justify-center rounded-lg bg-slate-100 text-slate-500 hover:bg-red-50 hover:text-red-500"
+                title="Close"
+              >
+                <FaTimes />
+              </button>
+
+            </div>
+
+          </div>
+
+          <QuotationPrint
+            quotation={selectedQuotation}
+          />
+
+        </div>
+      )}
 
     </div>
   )

@@ -16,10 +16,7 @@ function readQuotations() {
     }
 
     return JSON.parse(
-      fs.readFileSync(
-        dataPath,
-        'utf8'
-      )
+      fs.readFileSync(dataPath, 'utf8')
     )
   } catch (error) {
     console.error(
@@ -31,9 +28,7 @@ function readQuotations() {
   }
 }
 
-function writeQuotations(
-  quotations
-) {
+function writeQuotations(quotations) {
   fs.writeFileSync(
     dataPath,
     JSON.stringify(
@@ -53,7 +48,7 @@ export async function GET() {
 
 export async function POST(request) {
   try {
-    const newQuotation =
+    const data =
       await request.json()
 
     const quotations =
@@ -71,20 +66,64 @@ export async function POST(request) {
 
     const quotation = {
       id: lastId + 1,
-      ...newQuotation,
-      type: 'quotation',
+
+      number:
+        data.number || '',
+
+      date:
+        data.date || '',
+
+      customer:
+        data.customer || '',
+
+      customerAddress:
+        data.customerAddress || '',
+
+      customerPhone:
+        data.customerPhone || '',
+
+      customerGst:
+        data.customerGst || '',
+
+      items:
+        Array.isArray(data.items)
+          ? data.items
+          : [],
+
+      sgst:
+        Number(data.sgst) || 0,
+
+      cgst:
+        Number(data.cgst) || 0,
+
+      gst:
+        Number(data.gst) || 0,
+
+      total:
+        Number(data.total) || 0,
+
+      bank:
+        data.bank || 'canara',
+
       status:
-        newQuotation.status ||
-        'draft',
+        data.status || 'draft',
+
+      type: 'quotation',
+
       createdAt:
         new Date().toISOString(),
+
       updatedAt:
         new Date().toISOString(),
     }
 
-    quotations.push(quotation)
+    quotations.push(
+      quotation
+    )
 
-    writeQuotations(quotations)
+    writeQuotations(
+      quotations
+    )
 
     return NextResponse.json(
       quotation,

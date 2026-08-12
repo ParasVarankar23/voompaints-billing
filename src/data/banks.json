@@ -1,0 +1,16 @@
+[
+    {
+        "id": "canara",
+        "name": "CANARA BANK",
+        "accountNumber": "52153070008808",
+        "branch": "Kalamboli",
+        "ifsc": "CNRB0015215"
+    },
+    {
+        "id": "saraswat",
+        "name": "SARASWAT BANK",
+        "accountNumber": "810000000009068",
+        "branch": "YOUR SARASWAT BRANCH",
+        "ifsc": "SRCB0000450"
+    }
+]

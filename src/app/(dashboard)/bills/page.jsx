@@ -1,24 +1,28 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import Link from 'next/link'
 import {
-  FaPlus,
-  FaSearch,
   FaEdit,
-  FaTrash,
-  FaPrint,
   FaEnvelope,
-  FaFileInvoice,
-  FaSyncAlt,
-  FaArrowRight,
+  FaPlus,
+  FaPrint,
+  FaSearch,
+  FaTimes,
+  FaTrash
 } from 'react-icons/fa'
 
 import BillModal from '@/components/BillModal'
+import InvoicePrint from '@/components/InvoicePrint'
 
 export default function BillsPage() {
+  // =====================================================
+  // STATE
+  // =====================================================
+
   const [bills, setBills] = useState([])
-  const [searchTerm, setSearchTerm] = useState('')
+
+  const [searchTerm, setSearchTerm] =
+    useState('')
 
   const [showModal, setShowModal] =
     useState(false)
@@ -26,27 +30,42 @@ export default function BillsPage() {
   const [editingBill, setEditingBill] =
     useState(null)
 
+  const [selectedBill, setSelectedBill] =
+    useState(null)
+
+  const [showInvoice, setShowInvoice] =
+    useState(false)
+
   const [loading, setLoading] =
     useState(true)
 
-  const [refreshing, setRefreshing] =
-    useState(false)
+  const [sendingEmail, setSendingEmail] =
+    useState(null)
 
-  const [error, setError] = useState('')
+  const [message, setMessage] =
+    useState({
+      type: '',
+      text: '',
+    })
 
-  // ==========================================
+  // =====================================================
   // FETCH BILLS
-  // ==========================================
+  // =====================================================
+
   useEffect(() => {
     fetchBills()
   }, [])
 
   const fetchBills = async () => {
     try {
-      setRefreshing(true)
-      setError('')
+      setLoading(true)
 
-      const response = await fetch('/api/bills')
+      const response = await fetch(
+        '/api/bills',
+        {
+          cache: 'no-store',
+        }
+      )
 
       if (!response.ok) {
         throw new Error(
@@ -54,64 +73,109 @@ export default function BillsPage() {
         )
       }
 
-      const data = await response.json()
+      const data =
+        await response.json()
 
-      const billsData = Array.isArray(data)
-        ? data
-        : data?.bills || []
-
-      setBills(billsData)
+      setBills(
+        Array.isArray(data)
+          ? data
+          : []
+      )
     } catch (error) {
       console.error(
         'Error fetching bills:',
         error
       )
 
-      setError(
-        'Unable to load bills. Please try again.'
+      showMessage(
+        'error',
+        'Unable to load bills.'
       )
     } finally {
       setLoading(false)
-      setRefreshing(false)
     }
   }
 
-  // ==========================================
+  // =====================================================
+  // MESSAGE
+  // =====================================================
+
+  const showMessage = (
+    type,
+    text
+  ) => {
+    setMessage({
+      type,
+      text,
+    })
+
+    setTimeout(() => {
+      setMessage({
+        type: '',
+        text: '',
+      })
+    }, 3000)
+  }
+
+  // =====================================================
+  // OPEN CREATE MODAL
+  // =====================================================
+
+  const handleNewBill = () => {
+    setEditingBill(null)
+    setShowModal(true)
+  }
+
+  // =====================================================
+  // OPEN EDIT MODAL
+  // =====================================================
+
+  const handleEdit = (bill) => {
+    setEditingBill(bill)
+    setShowModal(true)
+  }
+
+  // =====================================================
   // SAVE BILL
-  // ==========================================
-  const handleSave = async (formData) => {
+  // =====================================================
+
+  const handleSave = async (
+    formData
+  ) => {
     try {
-      setError('')
+      const isEditing =
+        Boolean(editingBill)
 
-      const billId =
-        editingBill?._id ||
-        editingBill?.id
-
-      const url = billId
-        ? `/api/bills/${billId}`
+      const url = isEditing
+        ? `/api/bills/${editingBill.id}`
         : '/api/bills'
 
-      const method = billId
+      const method = isEditing
         ? 'PUT'
         : 'POST'
 
-      const response = await fetch(url, {
-        method,
-        headers: {
-          'Content-Type':
-            'application/json',
-        },
-        body: JSON.stringify(formData),
-      })
+      const response = await fetch(
+        url,
+        {
+          method,
+          headers: {
+            'Content-Type':
+              'application/json',
+          },
+          body: JSON.stringify(
+            formData
+          ),
+        }
+      )
+
+      const data =
+        await response.json()
 
       if (!response.ok) {
-        const data = await response
-          .json()
-          .catch(() => null)
-
         throw new Error(
+          data?.error ||
           data?.message ||
-            'Failed to save bill'
+          'Failed to save bill'
         )
       }
 
@@ -119,34 +183,32 @@ export default function BillsPage() {
 
       setShowModal(false)
       setEditingBill(null)
+
+      showMessage(
+        'success',
+        isEditing
+          ? 'Bill updated successfully.'
+          : 'Bill created successfully.'
+      )
     } catch (error) {
       console.error(
         'Error saving bill:',
         error
       )
 
-      setError(
-        error.message ||
-          'Unable to save bill.'
-      )
+      throw error
     }
   }
 
-  // ==========================================
+  // =====================================================
   // DELETE BILL
-  // ==========================================
-  const handleDelete = async (bill) => {
-    const billId =
-      bill?._id || bill?.id
+  // =====================================================
 
-    if (!billId) {
-      return
-    }
-
+  const handleDelete = async (
+    id
+  ) => {
     const confirmed = window.confirm(
-      `Are you sure you want to delete bill ${
-        bill.number || ''
-      }?`
+      'Are you sure you want to delete this bill?'
     )
 
     if (!confirmed) {
@@ -154,47 +216,137 @@ export default function BillsPage() {
     }
 
     try {
-      setError('')
-
       const response = await fetch(
-        `/api/bills/${billId}`,
+        `/api/bills/${id}`,
         {
           method: 'DELETE',
         }
       )
 
+      const data =
+        await response.json()
+
       if (!response.ok) {
         throw new Error(
+          data?.error ||
           'Failed to delete bill'
         )
       }
 
       await fetchBills()
+
+      showMessage(
+        'success',
+        'Bill deleted successfully.'
+      )
     } catch (error) {
       console.error(
         'Error deleting bill:',
         error
       )
 
-      setError(
-        'Unable to delete the bill.'
+      showMessage(
+        'error',
+        'Failed to delete bill.'
       )
     }
   }
 
-  // ==========================================
-  // PRINT
-  // ==========================================
+  // =====================================================
+  // OPEN PRINT PREVIEW
+  // =====================================================
+
   const handlePrint = (bill) => {
-    // For now, use browser print.
-    // You can later create a dedicated
-    // invoice PDF/print page.
-    window.print()
+    setSelectedBill(bill)
+    setShowInvoice(true)
   }
 
-  // ==========================================
-  // SEARCH
-  // ==========================================
+  // =====================================================
+  // CLOSE PRINT PREVIEW
+  // =====================================================
+
+  const closeInvoice = () => {
+    setShowInvoice(false)
+    setSelectedBill(null)
+  }
+
+  // =====================================================
+  // SEND EMAIL
+  // =====================================================
+
+  const handleSendEmail = async (
+    bill
+  ) => {
+    if (!bill?.customerEmail) {
+      showMessage(
+        'error',
+        'Customer email is not available for this bill.'
+      )
+      return
+    }
+
+    const confirmed =
+      window.confirm(
+        `Send invoice ${bill.number || ''} to ${bill.customerEmail}?`
+      )
+
+    if (!confirmed) {
+      return
+    }
+
+    try {
+      setSendingEmail(bill.id)
+
+      const response = await fetch(
+        '/api/send-email',
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type':
+              'application/json',
+          },
+          body: JSON.stringify({
+            to: bill.customerEmail,
+            bill,
+            type: 'bill',
+          }),
+        }
+      )
+
+      const data =
+        await response.json()
+
+      if (!response.ok || !data.success) {
+        throw new Error(
+          data?.message ||
+          'Failed to send email'
+        )
+      }
+
+      showMessage(
+        'success',
+        `Invoice sent to ${bill.customerEmail}`
+      )
+    } catch (error) {
+      console.error(
+        'Email error:',
+        error
+      )
+
+      showMessage(
+        'error',
+        error.message ||
+        'Failed to send email.'
+      )
+    } finally {
+      setSendingEmail(null)
+    }
+  }
+
+  // =====================================================
+  // FILTER
+  // =====================================================
+
   const filteredBills =
     bills.filter((bill) => {
       const search =
@@ -213,481 +365,223 @@ export default function BillsPage() {
         bill.customer
           ?.toLowerCase()
           .includes(search) ||
-        bill.customerGst
+        bill.customerEmail
           ?.toLowerCase()
           .includes(search) ||
-        bill.status
+        bill.customerPhone
           ?.toLowerCase()
           .includes(search)
       )
     })
 
-  // ==========================================
-  // STATS
-  // ==========================================
-  const totalAmount = bills.reduce(
-    (sum, bill) =>
-      sum + Number(bill.total || 0),
-    0
-  )
+  // =====================================================
+  // MONEY FORMAT
+  // =====================================================
 
-  const pendingBills = bills.filter(
-    (bill) =>
-      String(
-        bill.status || ''
-      ).toLowerCase() === 'pending'
-  ).length
-
-  const paidBills = bills.filter(
-    (bill) =>
-      String(
-        bill.status || ''
-      ).toLowerCase() === 'paid'
-  ).length
-
-  // ==========================================
-  // FORMAT CURRENCY
-  // ==========================================
-  const formatCurrency = (amount) => {
+  const formatMoney = (
+    amount
+  ) => {
     return `₹${Number(
       amount || 0
-    ).toLocaleString('en-IN')}`
-  }
-
-  // ==========================================
-  // FORMAT DATE
-  // ==========================================
-  const formatDate = (date) => {
-    if (!date) {
-      return '-'
-    }
-
-    const parsedDate =
-      new Date(date)
-
-    if (
-      Number.isNaN(
-        parsedDate.getTime()
-      )
-    ) {
-      return date
-    }
-
-    return parsedDate.toLocaleDateString(
+    ).toLocaleString(
       'en-IN',
       {
-        day: '2-digit',
-        month: 'short',
-        year: 'numeric',
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
       }
-    )
+    )}`
   }
 
-  // ==========================================
-  // OPEN CREATE MODAL
-  // ==========================================
-  const handleCreate = () => {
-    setEditingBill(null)
-    setShowModal(true)
+  // =====================================================
+  // STATUS STYLE
+  // =====================================================
+
+  const getStatusClass = (
+    status
+  ) => {
+    switch (
+    String(
+      status || 'pending'
+    ).toLowerCase()
+    ) {
+      case 'paid':
+        return 'bg-green-50 text-green-700 border-green-100'
+
+      case 'cancelled':
+        return 'bg-red-50 text-red-700 border-red-100'
+
+      default:
+        return 'bg-orange-50 text-orange-700 border-orange-100'
+    }
   }
 
-  // ==========================================
-  // OPEN EDIT MODAL
-  // ==========================================
-  const handleEdit = (bill) => {
-    setEditingBill(bill)
-    setShowModal(true)
-  }
-
-  // ==========================================
-  // LOADING
-  // ==========================================
-  if (loading) {
-    return (
-      <div className="mx-auto w-full max-w-[1500px] space-y-6">
-
-        <div className="animate-pulse">
-          <div className="h-4 w-16 rounded bg-slate-200" />
-
-          <div className="mt-2 h-8 w-32 rounded bg-slate-200" />
-
-          <div className="mt-2 h-4 w-72 rounded bg-slate-200" />
-        </div>
-
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-
-          {[1, 2, 3, 4].map(
-            (item) => (
-              <div
-                key={item}
-                className="h-28 animate-pulse rounded-2xl bg-slate-200"
-              />
-            )
-          )}
-
-        </div>
-
-        <div className="h-96 animate-pulse rounded-2xl bg-slate-200" />
-
-      </div>
-    )
-  }
+  // =====================================================
+  // UI
+  // =====================================================
 
   return (
-    <div className="mx-auto w-full max-w-[1500px] space-y-6">
+    <div className="min-h-full">
 
-      {/* ======================================
-          PAGE HEADER
-      ======================================= */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+      {/* =================================================
+          TOAST MESSAGE
+      ================================================= */}
 
-        <div>
-
-          <p className="text-xs font-semibold uppercase tracking-wider text-blue-500">
-            Billing
-          </p>
-
-          <h1 className="mt-1 text-2xl font-bold tracking-tight text-slate-800 sm:text-3xl">
-            Bills
-          </h1>
-
-          <p className="mt-1 text-sm text-slate-500">
-            Create, manage and track your customer bills.
-          </p>
-
-        </div>
-
-        <div className="flex items-center gap-2">
-
-          <button
-            type="button"
-            onClick={fetchBills}
-            disabled={refreshing}
-            className="
-              flex
-              items-center
-              gap-2
-              rounded-xl
-              border
-              border-slate-200
-              bg-white
-              px-4
-              py-2.5
-              text-sm
-              font-semibold
-              text-slate-600
-              shadow-sm
-              transition
-              hover:border-blue-200
-              hover:bg-blue-50
-              hover:text-blue-500
-              disabled:opacity-60
-            "
-          >
-            <FaSyncAlt
-              className={
-                refreshing
-                  ? 'animate-spin'
-                  : ''
-              }
-            />
-
-            <span className="hidden sm:inline">
-              {refreshing
-                ? 'Refreshing...'
-                : 'Refresh'}
-            </span>
-          </button>
-
-          <button
-            type="button"
-            onClick={handleCreate}
-            className="
-              flex
-              items-center
-              gap-2
-              rounded-xl
-              bg-blue-500
-              px-4
-              py-2.5
-              text-sm
-              font-semibold
-              text-white
-              shadow-md
-              shadow-blue-100
-              transition
-              hover:bg-blue-600
-            "
-          >
-            <FaPlus />
-
-            <span>
-              New Bill
-            </span>
-          </button>
-
-        </div>
-
-      </div>
-
-      {/* ======================================
-          ERROR
-      ======================================= */}
-      {error && (
-        <div className="
-          flex
-          items-center
-          justify-between
-          rounded-xl
-          border
-          border-red-100
-          bg-red-50
-          px-4
-          py-3
-        ">
-
-          <p className="text-sm text-red-600">
-            {error}
-          </p>
-
-          <button
-            type="button"
-            onClick={fetchBills}
-            className="text-sm font-semibold text-red-600 hover:text-red-700"
-          >
-            Try again
-          </button>
-
+      {message.text && (
+        <div
+          className={`
+            fixed
+            right-4
+            top-20
+            z-[200]
+            max-w-sm
+            rounded-xl
+            border
+            px-4
+            py-3
+            text-sm
+            font-medium
+            shadow-lg
+            ${message.type ===
+              'success'
+              ? 'border-green-100 bg-green-50 text-green-700'
+              : 'border-red-100 bg-red-50 text-red-700'
+            }
+          `}
+        >
+          {message.text}
         </div>
       )}
 
-      {/* ======================================
-          SUMMARY CARDS
-      ======================================= */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      {/* =================================================
+          PAGE HEADER
+      ================================================= */}
 
-        {/* Total Bills */}
-        <div className="
-          rounded-2xl
-          border
-          border-slate-100
-          bg-white
-          p-5
-          shadow-sm
-        ">
-
-          <div className="flex items-center justify-between">
-
-            <div>
-
-              <p className="text-sm font-medium text-slate-500">
-                Total Bills
-              </p>
-
-              <p className="mt-2 text-2xl font-bold text-slate-800">
-                {bills.length}
-              </p>
-
-              <p className="mt-1 text-xs text-slate-400">
-                All generated bills
-              </p>
-
-            </div>
-
-            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-blue-50 text-blue-500">
-              <FaFileInvoice />
-            </div>
-
-          </div>
-
-        </div>
-
-        {/* Total Amount */}
-        <div className="
-          rounded-2xl
-          border
-          border-slate-100
-          bg-white
-          p-5
-          shadow-sm
-        ">
-
-          <div className="flex items-center justify-between">
-
-            <div>
-
-              <p className="text-sm font-medium text-slate-500">
-                Total Amount
-              </p>
-
-              <p className="mt-2 text-2xl font-bold text-slate-800">
-                {formatCurrency(
-                  totalAmount
-                )}
-              </p>
-
-              <p className="mt-1 text-xs text-slate-400">
-                Total bill value
-              </p>
-
-            </div>
-
-            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-emerald-50 text-emerald-500">
-              ₹
-            </div>
-
-          </div>
-
-        </div>
-
-        {/* Paid */}
-        <div className="
-          rounded-2xl
-          border
-          border-slate-100
-          bg-white
-          p-5
-          shadow-sm
-        ">
-
-          <div className="flex items-center justify-between">
-
-            <div>
-
-              <p className="text-sm font-medium text-slate-500">
-                Paid Bills
-              </p>
-
-              <p className="mt-2 text-2xl font-bold text-slate-800">
-                {paidBills}
-              </p>
-
-              <p className="mt-1 text-xs text-slate-400">
-                Successfully paid
-              </p>
-
-            </div>
-
-            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-green-50 text-green-500">
-              ✓
-            </div>
-
-          </div>
-
-        </div>
-
-        {/* Pending */}
-        <div className="
-          rounded-2xl
-          border
-          border-slate-100
-          bg-white
-          p-5
-          shadow-sm
-        ">
-
-          <div className="flex items-center justify-between">
-
-            <div>
-
-              <p className="text-sm font-medium text-slate-500">
-                Pending Bills
-              </p>
-
-              <p className="mt-2 text-2xl font-bold text-slate-800">
-                {pendingBills}
-              </p>
-
-              <p className="mt-1 text-xs text-slate-400">
-                Awaiting payment
-              </p>
-
-            </div>
-
-            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-orange-50 text-orange-500">
-              !
-            </div>
-
-          </div>
-
-        </div>
-
-      </div>
-
-      {/* ======================================
-          BILLS TABLE
-      ======================================= */}
-      <div className="
-        overflow-hidden
-        rounded-2xl
-        border
-        border-slate-100
-        bg-white
-        shadow-sm
-      ">
-
-        {/* Table Header */}
-        <div className="
+      <div
+        className="
+          mb-6
           flex
           flex-col
           gap-4
-          border-b
-          border-slate-100
-          p-5
           sm:flex-row
           sm:items-center
           sm:justify-between
-          sm:px-6
-        ">
+        "
+      >
 
-          <div>
+        <div>
 
-            <h2 className="text-base font-bold text-slate-800">
-              All Bills
-            </h2>
+          <div className="flex items-center gap-2">
 
-            <p className="mt-1 text-xs text-slate-400">
-              Manage your invoices and payment status
-            </p>
+            <h1 className="text-2xl font-bold text-slate-800">
+              Bills
+            </h1>
+
+            <span className="rounded-full bg-blue-50 px-2.5 py-1 text-xs font-semibold text-blue-600">
+              {bills.length}
+            </span>
 
           </div>
 
-          {/* Search */}
-          <div className="relative w-full sm:w-72">
+          <p className="mt-1 text-sm text-slate-500">
+            Create, manage and send your invoices
+          </p>
 
-            <FaSearch className="
-              absolute
-              left-3
-              top-1/2
-              -translate-y-1/2
-              text-xs
-              text-slate-400
-            " />
+        </div>
+
+        <button
+          type="button"
+          onClick={handleNewBill}
+          className="
+            flex
+            w-full
+            items-center
+            justify-center
+            gap-2
+            rounded-xl
+            bg-blue-600
+            px-5
+            py-3
+            text-sm
+            font-semibold
+            text-white
+            shadow-sm
+            transition
+            hover:bg-blue-700
+            hover:shadow-md
+            sm:w-auto
+          "
+        >
+          <FaPlus />
+          New Bill
+        </button>
+
+      </div>
+
+      {/* =================================================
+          MAIN CARD
+      ================================================= */}
+
+      <div
+        className="
+          overflow-hidden
+          rounded-2xl
+          border
+          border-slate-200
+          bg-white
+          shadow-sm
+        "
+      >
+
+        {/* =================================================
+            SEARCH
+        ================================================= */}
+
+        <div
+          className="
+            border-b
+            border-slate-100
+            p-4
+            sm:p-5
+          "
+        >
+
+          <div className="relative max-w-xl">
+
+            <FaSearch
+              className="
+                absolute
+                left-3.5
+                top-1/2
+                -translate-y-1/2
+                text-sm
+                text-slate-400
+              "
+            />
 
             <input
               type="text"
               value={searchTerm}
-              onChange={(e) =>
+              onChange={(event) =>
                 setSearchTerm(
-                  e.target.value
+                  event.target.value
                 )
               }
-              placeholder="Search bills..."
+              placeholder="Search by bill number, customer, email..."
               className="
                 w-full
                 rounded-xl
                 border
                 border-slate-200
                 bg-slate-50
-                py-2.5
-                pl-9
+                py-3
+                pl-10
                 pr-4
                 text-sm
                 text-slate-700
                 outline-none
                 transition
                 placeholder:text-slate-400
-                focus:border-blue-400
+                focus:border-blue-500
                 focus:bg-white
                 focus:ring-4
                 focus:ring-blue-50
@@ -698,217 +592,175 @@ export default function BillsPage() {
 
         </div>
 
-        {/* ====================================
-            EMPTY STATE
-        ===================================== */}
-        {filteredBills.length === 0 ? (
+        {/* =================================================
+            LOADING
+        ================================================= */}
 
-          <div className="flex flex-col items-center justify-center px-5 py-14 text-center">
+        {loading ? (
+          <div className="flex min-h-[300px] items-center justify-center">
 
-            <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-blue-50">
-              <FaFileInvoice className="text-2xl text-blue-400" />
+            <div className="text-center">
+
+              <div
+                className="
+                  mx-auto
+                  h-9
+                  w-9
+                  animate-spin
+                  rounded-full
+                  border-4
+                  border-blue-100
+                  border-t-blue-600
+                "
+              />
+
+              <p className="mt-3 text-sm text-slate-500">
+                Loading bills...
+              </p>
+
             </div>
 
-            <h3 className="mt-4 text-sm font-bold text-slate-700">
-              {searchTerm
-                ? 'No bills found'
-                : 'No bills yet'}
-            </h3>
-
-            <p className="mt-1 max-w-md text-xs leading-5 text-slate-400">
-              {searchTerm
-                ? 'Try searching with a different bill number or customer name.'
-                : 'Create your first bill to start managing your billing records.'}
-            </p>
-
-            {!searchTerm && (
-              <button
-                type="button"
-                onClick={handleCreate}
-                className="
-                  mt-5
-                  flex
-                  items-center
-                  gap-2
-                  rounded-xl
-                  bg-blue-500
-                  px-4
-                  py-2.5
-                  text-xs
-                  font-semibold
-                  text-white
-                  shadow-md
-                  shadow-blue-100
-                  transition
-                  hover:bg-blue-600
-                "
-              >
-                <FaPlus />
-                Create First Bill
-              </button>
-            )}
-
           </div>
-
         ) : (
+          <>
+            {/* =================================================
+                DESKTOP TABLE
+            ================================================= */}
 
-          /* ====================================
-             TABLE
-          ===================================== */
-          <div className="overflow-x-auto">
+            <div className="hidden overflow-x-auto md:block">
 
-            <table className="w-full min-w-[900px]">
+              <table className="w-full">
 
-              <thead>
+                <thead>
 
-                <tr className="border-b border-slate-100 bg-slate-50/70">
+                  <tr className="border-b border-slate-100 bg-slate-50/70">
 
-                  <th className="px-6 py-3.5 text-left text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                    Bill No.
-                  </th>
+                    <th className="px-5 py-4 text-left text-xs font-bold uppercase tracking-wider text-slate-500">
+                      Bill No.
+                    </th>
 
-                  <th className="px-4 py-3.5 text-left text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                    Customer
-                  </th>
+                    <th className="px-5 py-4 text-left text-xs font-bold uppercase tracking-wider text-slate-500">
+                      Customer
+                    </th>
 
-                  <th className="px-4 py-3.5 text-left text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                    Date
-                  </th>
+                    <th className="px-5 py-4 text-left text-xs font-bold uppercase tracking-wider text-slate-500">
+                      Date
+                    </th>
 
-                  <th className="px-4 py-3.5 text-right text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                    Amount
-                  </th>
+                    <th className="px-5 py-4 text-right text-xs font-bold uppercase tracking-wider text-slate-500">
+                      Amount
+                    </th>
 
-                  <th className="px-4 py-3.5 text-center text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                    Status
-                  </th>
+                    <th className="px-5 py-4 text-center text-xs font-bold uppercase tracking-wider text-slate-500">
+                      Status
+                    </th>
 
-                  <th className="px-6 py-3.5 text-center text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                    Actions
-                  </th>
+                    <th className="px-5 py-4 text-center text-xs font-bold uppercase tracking-wider text-slate-500">
+                      Actions
+                    </th>
 
-                </tr>
+                  </tr>
 
-              </thead>
+                </thead>
 
-              <tbody>
+                <tbody>
 
-                {filteredBills.map(
-                  (bill) => {
-
-                    const billId =
-                      bill._id ||
-                      bill.id
-
-                    const status =
-                      String(
-                        bill.status ||
-                          'pending'
-                      ).toLowerCase()
-
-                    const isPaid =
-                      status === 'paid'
-
-                    return (
+                  {filteredBills.map(
+                    (bill) => (
                       <tr
-                        key={billId}
+                        key={bill.id}
                         className="
                           border-b
-                          border-slate-50
+                          border-slate-100
                           transition
                           last:border-0
                           hover:bg-blue-50/30
                         "
                       >
 
-                        {/* Bill Number */}
-                        <td className="px-6 py-4">
+                        {/* BILL */}
 
-                          <div className="flex items-center gap-3">
+                        <td className="px-5 py-4">
 
-                            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-blue-50 text-blue-500">
-                              <FaFileInvoice className="text-sm" />
-                            </div>
+                          <span className="font-semibold text-slate-800">
+                            {bill.number ||
+                              '-'}
+                          </span>
 
-                            <span className="text-sm font-bold text-slate-700">
-                              {bill.number ||
+                        </td>
+
+                        {/* CUSTOMER */}
+
+                        <td className="px-5 py-4">
+
+                          <div>
+
+                            <p className="font-medium text-slate-700">
+                              {bill.customer ||
                                 '-'}
-                            </span>
+                            </p>
+
+                            {bill.customerEmail && (
+                              <p className="mt-0.5 max-w-[220px] truncate text-xs text-slate-400">
+                                {bill.customerEmail}
+                              </p>
+                            )}
 
                           </div>
 
                         </td>
 
-                        {/* Customer */}
-                        <td className="px-4 py-4">
+                        {/* DATE */}
 
-                          <p className="text-sm font-medium text-slate-700">
-                            {bill.customer ||
-                              '-'}
-                          </p>
-
-                          {bill.customerGst && (
-                            <p className="mt-0.5 text-[10px] uppercase text-slate-400">
-                              GST: {bill.customerGst}
-                            </p>
-                          )}
-
+                        <td className="px-5 py-4 text-sm text-slate-500">
+                          {bill.date || '-'}
                         </td>
 
-                        {/* Date */}
-                        <td className="px-4 py-4">
+                        {/* AMOUNT */}
 
-                          <span className="text-sm text-slate-500">
-                            {formatDate(
-                              bill.date ||
-                                bill.createdAt
-                            )}
-                          </span>
+                        <td className="px-5 py-4 text-right">
 
-                        </td>
-
-                        {/* Amount */}
-                        <td className="px-4 py-4 text-right">
-
-                          <span className="text-sm font-bold text-slate-700">
-                            {formatCurrency(
+                          <span className="font-semibold text-slate-800">
+                            {formatMoney(
                               bill.total
                             )}
                           </span>
 
                         </td>
 
-                        {/* Status */}
-                        <td className="px-4 py-4 text-center">
+                        {/* STATUS */}
+
+                        <td className="px-5 py-4 text-center">
 
                           <span
                             className={`
                               inline-flex
                               rounded-full
+                              border
                               px-3
                               py-1
-                              text-[10px]
-                              font-bold
-                              ${
-                                isPaid
-                                  ? 'bg-green-50 text-green-600'
-                                  : 'bg-orange-50 text-orange-600'
-                              }
+                              text-xs
+                              font-semibold
+                              capitalize
+                              ${getStatusClass(
+                              bill.status
+                            )}
                             `}
                           >
-                            {isPaid
-                              ? 'Paid'
-                              : 'Pending'}
+                            {bill.status ||
+                              'pending'}
                           </span>
 
                         </td>
 
-                        {/* Actions */}
-                        <td className="px-6 py-4">
+                        {/* ACTIONS */}
+
+                        <td className="px-5 py-4">
 
                           <div className="flex items-center justify-center gap-1">
 
-                            {/* Print */}
+                            {/* PRINT */}
+
                             <button
                               type="button"
                               onClick={() =>
@@ -916,24 +768,25 @@ export default function BillsPage() {
                                   bill
                                 )
                               }
-                              title="Print"
+                              title="Print Invoice"
                               className="
                                 flex
-                                h-8
-                                w-8
+                                h-9
+                                w-9
                                 items-center
                                 justify-center
                                 rounded-lg
                                 text-slate-400
                                 transition
                                 hover:bg-blue-50
-                                hover:text-blue-500
+                                hover:text-blue-600
                               "
                             >
-                              <FaPrint className="text-xs" />
+                              <FaPrint />
                             </button>
 
-                            {/* Edit */}
+                            {/* EDIT */}
+
                             <button
                               type="button"
                               onClick={() =>
@@ -941,66 +794,90 @@ export default function BillsPage() {
                                   bill
                                 )
                               }
-                              title="Edit"
+                              title="Edit Bill"
                               className="
                                 flex
-                                h-8
-                                w-8
+                                h-9
+                                w-9
                                 items-center
                                 justify-center
                                 rounded-lg
                                 text-slate-400
                                 transition
                                 hover:bg-green-50
-                                hover:text-green-500
+                                hover:text-green-600
                               "
                             >
-                              <FaEdit className="text-xs" />
+                              <FaEdit />
                             </button>
 
-                            {/* Email */}
+                            {/* EMAIL */}
+
                             <button
                               type="button"
-                              title="Send Email"
+                              onClick={() =>
+                                handleSendEmail(
+                                  bill
+                                )
+                              }
+                              disabled={
+                                sendingEmail ===
+                                bill.id
+                              }
+                              title={
+                                bill.customerEmail
+                                  ? 'Send Email'
+                                  : 'Customer email not available'
+                              }
                               className="
                                 flex
-                                h-8
-                                w-8
+                                h-9
+                                w-9
                                 items-center
                                 justify-center
                                 rounded-lg
                                 text-slate-400
                                 transition
-                                hover:bg-sky-50
-                                hover:text-sky-500
+                                hover:bg-purple-50
+                                hover:text-purple-600
+                                disabled:cursor-not-allowed
+                                disabled:opacity-40
                               "
                             >
-                              <FaEnvelope className="text-xs" />
+
+                              {sendingEmail ===
+                                bill.id ? (
+                                <span className="h-4 w-4 animate-spin rounded-full border-2 border-purple-200 border-t-purple-600" />
+                              ) : (
+                                <FaEnvelope />
+                              )}
+
                             </button>
 
-                            {/* Delete */}
+                            {/* DELETE */}
+
                             <button
                               type="button"
                               onClick={() =>
                                 handleDelete(
-                                  bill
+                                  bill.id
                                 )
                               }
-                              title="Delete"
+                              title="Delete Bill"
                               className="
                                 flex
-                                h-8
-                                w-8
+                                h-9
+                                w-9
                                 items-center
                                 justify-center
                                 rounded-lg
                                 text-slate-400
                                 transition
                                 hover:bg-red-50
-                                hover:text-red-500
+                                hover:text-red-600
                               "
                             >
-                              <FaTrash className="text-xs" />
+                              <FaTrash />
                             </button>
 
                           </div>
@@ -1009,77 +886,432 @@ export default function BillsPage() {
 
                       </tr>
                     )
-                  }
+                  )}
+
+                </tbody>
+
+              </table>
+
+            </div>
+
+            {/* =================================================
+                MOBILE CARDS
+            ================================================= */}
+
+            <div className="space-y-3 p-4 md:hidden">
+
+              {filteredBills.map(
+                (bill) => (
+                  <div
+                    key={bill.id}
+                    className="
+                      rounded-xl
+                      border
+                      border-slate-200
+                      bg-white
+                      p-4
+                      shadow-sm
+                    "
+                  >
+
+                    {/* TOP */}
+
+                    <div className="flex items-start justify-between gap-3">
+
+                      <div>
+
+                        <p className="text-xs font-semibold uppercase tracking-wider text-blue-500">
+                          Bill
+                        </p>
+
+                        <h3 className="mt-1 font-bold text-slate-800">
+                          {bill.number ||
+                            '-'}
+                        </h3>
+
+                      </div>
+
+                      <span
+                        className={`
+                          rounded-full
+                          border
+                          px-2.5
+                          py-1
+                          text-[10px]
+                          font-semibold
+                          capitalize
+                          ${getStatusClass(
+                          bill.status
+                        )}
+                        `}
+                      >
+                        {bill.status ||
+                          'pending'}
+                      </span>
+
+                    </div>
+
+                    {/* CUSTOMER */}
+
+                    <div className="mt-4">
+
+                      <p className="text-sm font-semibold text-slate-700">
+                        {bill.customer ||
+                          '-'}
+                      </p>
+
+                      {bill.customerEmail && (
+                        <p className="mt-1 break-all text-xs text-slate-400">
+                          {bill.customerEmail}
+                        </p>
+                      )}
+
+                    </div>
+
+                    {/* INFO */}
+
+                    <div className="mt-4 grid grid-cols-2 gap-3">
+
+                      <div className="rounded-lg bg-slate-50 p-3">
+
+                        <p className="text-[10px] font-semibold uppercase text-slate-400">
+                          Date
+                        </p>
+
+                        <p className="mt-1 text-xs font-semibold text-slate-700">
+                          {bill.date ||
+                            '-'}
+                        </p>
+
+                      </div>
+
+                      <div className="rounded-lg bg-slate-50 p-3">
+
+                        <p className="text-[10px] font-semibold uppercase text-slate-400">
+                          Amount
+                        </p>
+
+                        <p className="mt-1 text-sm font-bold text-blue-600">
+                          {formatMoney(
+                            bill.total
+                          )}
+                        </p>
+
+                      </div>
+
+                    </div>
+
+                    {/* ACTIONS */}
+
+                    <div className="mt-4 grid grid-cols-4 gap-2">
+
+                      <button
+                        type="button"
+                        onClick={() =>
+                          handlePrint(
+                            bill
+                          )
+                        }
+                        className="
+                          flex
+                          h-10
+                          items-center
+                          justify-center
+                          rounded-lg
+                          bg-blue-50
+                          text-blue-600
+                          transition
+                          hover:bg-blue-100
+                        "
+                        title="Print"
+                      >
+                        <FaPrint />
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() =>
+                          handleEdit(
+                            bill
+                          )
+                        }
+                        className="
+                          flex
+                          h-10
+                          items-center
+                          justify-center
+                          rounded-lg
+                          bg-green-50
+                          text-green-600
+                          transition
+                          hover:bg-green-100
+                        "
+                        title="Edit"
+                      >
+                        <FaEdit />
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() =>
+                          handleSendEmail(
+                            bill
+                          )
+                        }
+                        disabled={
+                          sendingEmail ===
+                          bill.id
+                        }
+                        className="
+                          flex
+                          h-10
+                          items-center
+                          justify-center
+                          rounded-lg
+                          bg-purple-50
+                          text-purple-600
+                          transition
+                          hover:bg-purple-100
+                          disabled:opacity-40
+                        "
+                        title="Email"
+                      >
+
+                        {sendingEmail ===
+                          bill.id ? (
+                          <span className="h-4 w-4 animate-spin rounded-full border-2 border-purple-200 border-t-purple-600" />
+                        ) : (
+                          <FaEnvelope />
+                        )}
+
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() =>
+                          handleDelete(
+                            bill.id
+                          )
+                        }
+                        className="
+                          flex
+                          h-10
+                          items-center
+                          justify-center
+                          rounded-lg
+                          bg-red-50
+                          text-red-600
+                          transition
+                          hover:bg-red-100
+                        "
+                        title="Delete"
+                      >
+                        <FaTrash />
+                      </button>
+
+                    </div>
+
+                  </div>
+                )
+              )}
+
+            </div>
+
+            {/* =================================================
+                EMPTY STATE
+            ================================================= */}
+
+            {filteredBills.length === 0 && (
+              <div className="px-5 py-16 text-center">
+
+                <div
+                  className="
+                    mx-auto
+                    flex
+                    h-14
+                    w-14
+                    items-center
+                    justify-center
+                    rounded-2xl
+                    bg-blue-50
+                    text-blue-500
+                  "
+                >
+                  <FaFileInvoice className="text-xl" />
+                </div>
+
+                <h3 className="mt-4 font-semibold text-slate-700">
+                  {searchTerm
+                    ? 'No bills found'
+                    : 'No bills yet'}
+                </h3>
+
+                <p className="mt-1 text-sm text-slate-400">
+                  {searchTerm
+                    ? 'Try changing your search.'
+                    : 'Create your first bill to get started.'}
+                </p>
+
+                {!searchTerm && (
+                  <button
+                    type="button"
+                    onClick={
+                      handleNewBill
+                    }
+                    className="
+                      mt-5
+                      inline-flex
+                      items-center
+                      gap-2
+                      rounded-xl
+                      bg-blue-600
+                      px-4
+                      py-2.5
+                      text-sm
+                      font-semibold
+                      text-white
+                      hover:bg-blue-700
+                    "
+                  >
+                    <FaPlus />
+                    Create Bill
+                  </button>
                 )}
 
-              </tbody>
+              </div>
+            )}
 
-            </table>
-
-          </div>
-        )}
-
-        {/* ====================================
-            MOBILE / FOOTER
-        ===================================== */}
-        {filteredBills.length > 0 && (
-          <div className="
-            flex
-            items-center
-            justify-between
-            border-t
-            border-slate-100
-            px-5
-            py-4
-            sm:px-6
-          ">
-
-            <p className="text-xs text-slate-400">
-              Showing{' '}
-              <span className="font-semibold text-slate-600">
-                {filteredBills.length}
-              </span>{' '}
-              of{' '}
-              <span className="font-semibold text-slate-600">
-                {bills.length}
-              </span>{' '}
-              bills
-            </p>
-
-            <Link
-              href="/dashboard"
-              className="
-                hidden
-                items-center
-                gap-2
-                text-xs
-                font-semibold
-                text-blue-500
-                hover:text-blue-600
-                sm:flex
-              "
-            >
-              Dashboard
-              <FaArrowRight className="text-[9px]" />
-            </Link>
-
-          </div>
+          </>
         )}
 
       </div>
 
-      {/* ======================================
+      {/* =================================================
           BILL MODAL
-      ======================================= */}
+      ================================================= */}
+
       <BillModal
         isOpen={showModal}
         onClose={() => {
-          setShowModal(false)
-          setEditingBill(null)
+          if (!sendingEmail) {
+            setShowModal(false)
+            setEditingBill(null)
+          }
         }}
         onSave={handleSave}
         editingBill={editingBill}
       />
+
+      {/* =================================================
+          INVOICE PRINT MODAL
+      ================================================= */}
+
+      {showInvoice &&
+        selectedBill && (
+          <div
+            className="
+              fixed
+              inset-0
+              z-[150]
+              overflow-y-auto
+              bg-slate-900/60
+              p-2
+              backdrop-blur-sm
+              sm:p-5
+            "
+          >
+
+            {/* PRINT HEADER */}
+
+            <div
+              className="
+                no-print
+                sticky
+                top-0
+                z-10
+                mx-auto
+                mb-3
+                flex
+                max-w-[794px]
+                items-center
+                justify-between
+                rounded-xl
+                bg-white
+                px-4
+                py-3
+                shadow-lg
+              "
+            >
+
+              <div>
+
+                <p className="text-sm font-bold text-slate-800">
+                  Invoice Preview
+                </p>
+
+                <p className="text-xs text-slate-400">
+                  {selectedBill.number}
+                </p>
+
+              </div>
+
+              <div className="flex items-center gap-2">
+
+                <button
+                  type="button"
+                  onClick={() =>
+                    window.print()
+                  }
+                  className="
+                    flex
+                    items-center
+                    gap-2
+                    rounded-lg
+                    bg-blue-600
+                    px-4
+                    py-2
+                    text-sm
+                    font-semibold
+                    text-white
+                    hover:bg-blue-700
+                  "
+                >
+                  <FaPrint />
+                  Print
+                </button>
+
+                <button
+                  type="button"
+                  onClick={
+                    closeInvoice
+                  }
+                  className="
+                    flex
+                    h-9
+                    w-9
+                    items-center
+                    justify-center
+                    rounded-lg
+                    bg-slate-100
+                    text-slate-500
+                    hover:bg-red-50
+                    hover:text-red-500
+                  "
+                  title="Close"
+                >
+                  <FaTimes />
+                </button>
+
+              </div>
+
+            </div>
+
+            <InvoicePrint
+              bill={selectedBill}
+            />
+
+          </div>
+        )}
 
     </div>
   )

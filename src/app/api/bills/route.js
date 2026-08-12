@@ -1,5 +1,5 @@
-import { NextResponse } from 'next/server'
 import fs from 'fs'
+import { NextResponse } from 'next/server'
 import path from 'path'
 
 const dataPath = path.join(
@@ -15,18 +15,14 @@ function readBills() {
       return []
     }
 
-    const data = fs.readFileSync(
-      dataPath,
-      'utf8'
-    )
+    const contents = fs.readFileSync(dataPath, 'utf8').trim()
+    if (!contents) {
+      return []
+    }
 
-    return JSON.parse(data)
+    return JSON.parse(contents)
   } catch (error) {
-    console.error(
-      'Read bills error:',
-      error
-    )
-
+    console.error('Read bills error:', error)
     return []
   }
 }
@@ -40,33 +36,51 @@ function writeBills(bills) {
 }
 
 export async function GET() {
-  return NextResponse.json(
-    readBills()
-  )
+  return NextResponse.json(readBills())
 }
 
 export async function POST(request) {
   try {
-    const newBill =
-      await request.json()
+    const data = await request.json()
 
     const bills = readBills()
 
     const lastId = bills.reduce(
       (max, bill) =>
-        Math.max(
-          max,
-          Number(bill.id) || 0
-        ),
+        Math.max(max, Number(bill.id) || 0),
       0
     )
 
     const bill = {
       id: lastId + 1,
-      ...newBill,
+
+      number: data.number || '',
+      date: data.date || '',
+
+      customer: data.customer || '',
+      customerAddress:
+        data.customerAddress || '',
+      customerPhone:
+        data.customerPhone || '',
+      customerGst:
+        data.customerGst || '',
+
+      items: Array.isArray(data.items)
+        ? data.items
+        : [],
+
+      sgst: Number(data.sgst) || 0,
+      cgst: Number(data.cgst) || 0,
+      gst: Number(data.gst) || 0,
+      total: Number(data.total) || 0,
+
+      bank: data.bank || 'canara',
+
       type: 'bill',
+
       createdAt:
         new Date().toISOString(),
+
       updatedAt:
         new Date().toISOString(),
     }

@@ -16,10 +16,7 @@ function readQuotations() {
     }
 
     return JSON.parse(
-      fs.readFileSync(
-        dataPath,
-        'utf8'
-      )
+      fs.readFileSync(dataPath, 'utf8')
     )
   } catch (error) {
     console.error(
@@ -31,9 +28,7 @@ function readQuotations() {
   }
 }
 
-function writeQuotations(
-  quotations
-) {
+function writeQuotations(quotations) {
   fs.writeFileSync(
     dataPath,
     JSON.stringify(
@@ -52,9 +47,10 @@ export async function PUT(
   try {
     const { id } = await params
 
-    const quotationId = Number(id)
+    const quotationId =
+      Number(id)
 
-    const updatedQuotation =
+    const data =
       await request.json()
 
     const quotations =
@@ -78,19 +74,86 @@ export async function PUT(
       )
     }
 
-    quotations[index] = {
+    const updatedQuotation = {
       ...quotations[index],
-      ...updatedQuotation,
-      id: quotations[index].id,
+
+      number:
+        data.number ??
+        quotations[index].number,
+
+      date:
+        data.date ??
+        quotations[index].date,
+
+      customer:
+        data.customer ??
+        quotations[index].customer,
+
+      customerAddress:
+        data.customerAddress ??
+        quotations[index]
+          .customerAddress,
+
+      customerPhone:
+        data.customerPhone ??
+        quotations[index]
+          .customerPhone,
+
+      customerGst:
+        data.customerGst ??
+        quotations[index]
+          .customerGst,
+
+      items:
+        Array.isArray(data.items)
+          ? data.items
+          : quotations[index].items,
+
+      sgst:
+        data.sgst !== undefined
+          ? Number(data.sgst)
+          : quotations[index].sgst,
+
+      cgst:
+        data.cgst !== undefined
+          ? Number(data.cgst)
+          : quotations[index].cgst,
+
+      gst:
+        data.gst !== undefined
+          ? Number(data.gst)
+          : quotations[index].gst,
+
+      total:
+        data.total !== undefined
+          ? Number(data.total)
+          : quotations[index].total,
+
+      bank:
+        data.bank ||
+        quotations[index].bank ||
+        'canara',
+
+      status:
+        data.status ||
+        quotations[index].status ||
+        'draft',
+
       type: 'quotation',
+
       updatedAt:
         new Date().toISOString(),
     }
 
-    writeQuotations(quotations)
+    quotations[index] =
+      updatedQuotation
+
+    writeQuotations(
+      quotations
+    )
 
     return NextResponse.json(
-      quotations[index]
+      updatedQuotation
     )
   } catch (error) {
     console.error(
@@ -116,7 +179,8 @@ export async function DELETE(
   try {
     const { id } = await params
 
-    const quotationId = Number(id)
+    const quotationId =
+      Number(id)
 
     const quotations =
       readQuotations()
