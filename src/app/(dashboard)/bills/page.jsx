@@ -8,11 +8,12 @@ import {
   FaPrint,
   FaSearch,
   FaTimes,
-  FaTrash
+  FaTrash,
+  FaFileInvoice
 } from 'react-icons/fa'
 
 import BillModal from '@/components/BillModal'
-import InvoicePrint from '@/components/InvoicePrint'
+//import InvoicePrint from '@/components/InvoicePrint'
 
 export default function BillsPage() {
   // =====================================================

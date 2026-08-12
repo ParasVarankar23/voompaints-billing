@@ -13,7 +13,9 @@ import {
 } from 'react-icons/fa'
 
 import QuotationModal from '@/components/QuotationModal'
-import QuotationPrint from '@/components/QuotationPrint'
+
+//import QuotationPrint from '@/components/QuotationPrint'
+
 export default function QuotationsPage() {
   const [quotations, setQuotations] = useState([])
   const [searchTerm, setSearchTerm] = useState('')

@@ -1,1 +1,35 @@
-[]
+[
+  {
+    "id": 1,
+    "number": "1",
+    "date": "2026-08-12",
+    "customer": "Paras",
+    "customerAddress": "68, Vanjale Gaul Vadi",
+    "customerPhone": "9309940782",
+    "customerGst": "",
+    "items": [
+      {
+        "description": "A",
+        "packSize": "1",
+        "qty": 4,
+        "rate": 200,
+        "amount": 800
+      },
+      {
+        "description": "B",
+        "packSize": "3",
+        "qty": 1,
+        "rate": 32,
+        "amount": 32
+      }
+    ],
+    "sgst": 74.88,
+    "cgst": 74.88,
+    "gst": 149.76,
+    "total": 981.76,
+    "bank": "saraswat",
+    "type": "bill",
+    "createdAt": "2026-08-12T05:08:41.275Z",
+    "updatedAt": "2026-08-12T05:09:04.537Z"
+  }
+]

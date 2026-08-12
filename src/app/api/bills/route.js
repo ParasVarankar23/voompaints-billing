@@ -62,6 +62,8 @@ export async function POST(request) {
         data.customerAddress || '',
       customerPhone:
         data.customerPhone || '',
+      customerEmail:
+        data.customerEmail || '',
       customerGst:
         data.customerGst || '',
 

@@ -4,33 +4,39 @@
     "number": "1",
     "date": "2026-08-12",
     "customer": "Paras Pramod Varankar",
-    "customerAddress": "68, Vanjale Gaul Vadi",
+    "customerAddress": "Panvel",
     "customerPhone": "9309940782",
     "customerGst": "",
     "items": [
       {
-        "description": "Cristal Birla Paint",
+        "description": "Cristal Birla Print",
         "packSize": "20",
         "qty": 5,
         "rate": 5510,
         "amount": 27550
       },
       {
-        "description": "Chetek putty",
-        "packSize": "40",
-        "qty": 41,
-        "rate": 550,
-        "amount": 22550
+        "description": "Exterior Primer",
+        "packSize": "50",
+        "qty": 1,
+        "rate": 5280,
+        "amount": 5280
       }
     ],
-    "sgst": 4509,
-    "cgst": 4509,
-    "gst": 9018,
-    "total": 59118,
-    "bank": "canara",
+    "sgst": 0,
+    "cgst": 0,
+    "gst": 0,
+    "total": 32830,
+    "bank": {
+      "id": "canara",
+      "name": "CANARA BANK",
+      "accountNumber": "52153070008808",
+      "branch": "Kalamboli",
+      "ifsc": "CNRB0015215"
+    },
     "status": "sent",
     "type": "quotation",
-    "createdAt": "2026-08-12T04:39:06.825Z",
-    "updatedAt": "2026-08-12T04:52:34.685Z"
+    "createdAt": "2026-08-12T05:06:41.079Z",
+    "updatedAt": "2026-08-12T05:06:41.079Z"
   }
 ]

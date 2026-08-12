@@ -1,5 +1,5 @@
-import { NextResponse } from 'next/server'
 import fs from 'fs'
+import { NextResponse } from 'next/server'
 import path from 'path'
 
 const dataPath = path.join(
@@ -98,6 +98,10 @@ export async function PUT(
         data.customerPhone ??
         quotations[index]
           .customerPhone,
+
+      customerEmail:
+        data.customerEmail ??
+        quotations[index].customerEmail,
 
       customerGst:
         data.customerGst ??

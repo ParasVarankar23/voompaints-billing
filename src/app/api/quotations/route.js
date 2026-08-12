@@ -1,5 +1,5 @@
-import { NextResponse } from 'next/server'
 import fs from 'fs'
+import { NextResponse } from 'next/server'
 import path from 'path'
 
 const dataPath = path.join(
@@ -81,6 +81,9 @@ export async function POST(request) {
 
       customerPhone:
         data.customerPhone || '',
+
+      customerEmail:
+        data.customerEmail || '',
 
       customerGst:
         data.customerGst || '',
