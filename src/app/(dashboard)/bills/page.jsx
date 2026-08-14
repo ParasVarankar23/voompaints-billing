@@ -326,10 +326,18 @@ export default function BillsPage() {
         )
       }
 
+      // Log server response and notify user
+      console.log('send-email response:', data)
       showMessage(
         'success',
         `Invoice sent to ${bill.customerEmail}`
       )
+      // Fallback browser alert so user sees immediate confirmation
+      try {
+        window.alert(data?.message || `Invoice sent to ${bill.customerEmail}`)
+      } catch (e) {
+        // ignore if alert unavailable
+      }
       console.log(
         `Invoice email sent to ${bill.customerEmail}. Use Download (PDF) to get a clean copy without browser print headers.`
       )
@@ -344,6 +352,11 @@ export default function BillsPage() {
         error.message ||
         'Failed to send email.'
       )
+      try {
+        window.alert(error.message || 'Failed to send email.')
+      } catch (e) {
+        // ignore if alert unavailable
+      }
     } finally {
       setSendingEmail(null)
     }

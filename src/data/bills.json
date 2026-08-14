@@ -24,6 +24,7 @@
     "bank": "canara",
     "type": "bill",
     "createdAt": "2026-08-14T16:19:25.989Z",
-    "updatedAt": "2026-08-14T16:19:43.501Z"
+    "updatedAt": "2026-08-14T16:52:03.684Z",
+    "status": "paid"
   }
 ]

@@ -212,10 +212,18 @@ export default function QuotationsPage() {
         )
       }
 
+      // Log server response and notify user
+      console.log('send-email response:', data)
       showMessage(
         'success',
         `Quotation sent to ${quotation.customerEmail}`
       )
+      // Fallback browser alert so user sees immediate confirmation
+      try {
+        window.alert(data?.message || `Quotation sent to ${quotation.customerEmail}`)
+      } catch (e) {
+        // ignore if alert unavailable
+      }
       // Helpful client-side log for users/developers:
       console.log(
         `Quotation email sent to ${quotation.customerEmail}. Note: if you see print headers like page numbers, URL (localhost:3000), or app UI (scrollbars/Billing App) in exported PDFs, those are added by the browser's print dialog. Use the Download action (PDF) to get a clean file without browser headers.`
@@ -227,6 +235,11 @@ export default function QuotationsPage() {
         'error',
         error.message || 'Failed to send email.'
       )
+      try {
+        window.alert(error.message || 'Failed to send email.')
+      } catch (e) {
+        // ignore if alert unavailable
+      }
     } finally {
       setSendingEmail(null)
     }
