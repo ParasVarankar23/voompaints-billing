@@ -67,6 +67,12 @@ export async function POST(request) {
       )
     }
 
+    // Allow self-signed certificates in development or when explicitly enabled.
+    // For production, set SMTP_ALLOW_SELF_SIGNED to 'false' (or unset) for stricter checks.
+    const allowSelfSigned =
+      process.env.SMTP_ALLOW_SELF_SIGNED === 'true' ||
+      process.env.NODE_ENV !== 'production'
+
     const transporter = nodemailer.createTransport({
       host:
         process.env.SMTP_HOST ||
@@ -83,18 +89,14 @@ export async function POST(request) {
         user: process.env.SMTP_USER,
         pass: process.env.SMTP_PASS,
       },
+
+      tls: {
+        // If allowed, do not reject self-signed certs (useful for dev/testing)
+        rejectUnauthorized: !allowSelfSigned ? true : false,
+      },
     })
 
-    // Allow self-signed certificates in development or when explicitly enabled.
-    // For production, set SMTP_ALLOW_SELF_SIGNED to 'false' (or unset) for stricter checks.
-    const allowSelfSigned =
-      process.env.SMTP_ALLOW_SELF_SIGNED === 'true' ||
-      process.env.NODE_ENV !== 'production'
-
     if (allowSelfSigned) {
-      transporter.options = transporter.options || {}
-      transporter.options.tls = transporter.options.tls || {}
-      transporter.options.tls.rejectUnauthorized = false
       console.warn('send-email: allowing self-signed SMTP certificates (SMTP_ALLOW_SELF_SIGNED=true or non-production NODE_ENV)')
     }
 
@@ -918,20 +920,20 @@ td {
         `${documentTitle} sent successfully`,
     })
   } catch (error) {
-    console.error(
-      'Email error:',
-      error
-    )
+    console.error('Email error:', error)
 
-    return NextResponse.json(
-      {
-        success: false,
-        message:
-          error.message ||
-          'Failed to send email',
-      },
-      { status: 500 }
-    )
+    const payload = {
+      success: false,
+      message: error?.message || 'Failed to send email',
+      code: error?.code || null,
+    }
+
+    // Include stack trace only in non-production for debugging
+    if (process.env.NODE_ENV !== 'production') {
+      payload.stack = error?.stack
+    }
+
+    return NextResponse.json(payload, { status: 500 })
   }
 }
 
