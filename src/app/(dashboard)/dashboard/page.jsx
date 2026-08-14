@@ -589,11 +589,7 @@ export default function DashboardPage() {
 
                   return (
                     <tr
-                      key={
-                        item._id ||
-                        item.id ||
-                        index
-                      }
+                      key={`${item.type || 'item'}-${item._id || item.id || index}`}
                       className="
                         border-b
                         border-slate-50

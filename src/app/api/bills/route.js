@@ -54,7 +54,8 @@ export async function POST(request) {
     const bill = {
       id: lastId + 1,
 
-      number: data.number || '',
+      // Auto-generate bill number when not provided: INV{YEAR}{SEQUENCE}
+      number: data.number || `INV${new Date().getFullYear()}${lastId + 1}`,
       date: data.date || '',
 
       customer: data.customer || '',

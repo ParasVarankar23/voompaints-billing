@@ -67,8 +67,11 @@ export async function POST(request) {
     const quotation = {
       id: lastId + 1,
 
+      // Auto-generate a sequential quotation number when not provided by client.
+      // Format: QUO{CURRENT_YEAR}{SEQUENCE}
+      // Example: for year 2026 and sequence 1 -> QUO20261
       number:
-        data.number || '',
+        data.number || `QUO${new Date().getFullYear()}${lastId + 1}`,
 
       date:
         data.date || '',

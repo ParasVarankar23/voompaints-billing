@@ -14,7 +14,7 @@ import {
 
 import QuotationModal from '@/components/QuotationModal'
 
-//import QuotationPrint from '@/components/QuotationPrint'
+import QuotationPrint from '@/components/QuotationPrint'
 
 export default function QuotationsPage() {
   const [quotations, setQuotations] = useState([])
@@ -162,8 +162,9 @@ export default function QuotationsPage() {
   }
 
   const handlePrint = (quotation) => {
-    setSelectedQuotation(quotation)
-    setShowQuotation(true)
+    // Generate HTML from server and convert to PDF client-side to
+    // download directly (avoids browser print headers like URL/page numbers)
+    generatePdfAndDownload(quotation)
   }
 
   const closeQuotation = () => {
@@ -215,6 +216,10 @@ export default function QuotationsPage() {
         'success',
         `Quotation sent to ${quotation.customerEmail}`
       )
+      // Helpful client-side log for users/developers:
+      console.log(
+        `Quotation email sent to ${quotation.customerEmail}. Note: if you see print headers like page numbers, URL (localhost:3000), or app UI (scrollbars/Billing App) in exported PDFs, those are added by the browser's print dialog. Use the Download action (PDF) to get a clean file without browser headers.`
+      )
     } catch (error) {
       console.error('Email error:', error)
 
@@ -224,6 +229,112 @@ export default function QuotationsPage() {
       )
     } finally {
       setSendingEmail(null)
+    }
+  }
+
+  // Download PDF by requesting generated HTML and using html2pdf (loaded from CDN)
+  const generatePdfAndDownload = async (quotation) => {
+    try {
+      // Request generated HTML from send-email endpoint without sending mail
+      const res = await fetch('/api/send-email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          to: quotation.customerEmail || '',
+          quotation: quotation,
+          type: 'quotation',
+          returnHtml: true,
+        }),
+      })
+
+      const data = await res.json()
+
+      if (!res.ok || !data.html) {
+        throw new Error(data?.message || 'Failed to generate document HTML')
+      }
+
+      // Load html2pdf if not already available
+      // Prefer a local dynamic import (more reliable, works offline if installed)
+      if (typeof window.html2pdf === 'undefined') {
+        let loaded = false
+
+        try {
+          const mod = await import('html2pdf.js')
+          const lib = mod?.default || mod
+          if (lib) {
+            window.html2pdf = lib
+            loaded = true
+          }
+        } catch (err) {
+          // dynamic import failed (package not installed or bundler issue). We'll try CDN fallback.
+          console.warn('html2pdf dynamic import failed:', err)
+        }
+
+        if (!loaded) {
+          // CDN fallback
+          await new Promise((resolve, reject) => {
+            const s = document.createElement('script')
+            s.src = 'https://unpkg.com/html2pdf.js@0.9.3/dist/html2pdf.bundle.min.js'
+            s.async = true
+            s.onload = () => resolve()
+            s.onerror = () => reject(new Error(`Failed to load html2pdf script from ${s.src}`))
+            document.head.appendChild(s)
+          })
+
+          if (typeof window.html2pdf === 'undefined') {
+            throw new Error('html2pdf did not initialize after loading script')
+          }
+        }
+      }
+
+      // Create a container for the HTML and add it to DOM so html2canvas can render it.
+      // Use visibility:hidden (not display:none) and position it in-viewport so rendering works.
+      const container = document.createElement('div')
+      container.style.position = 'fixed'
+      container.style.left = '0'
+      container.style.top = '0'
+      container.style.width = '794px'
+      container.style.visibility = 'hidden'
+      container.style.zIndex = '99999'
+      container.innerHTML = data.html
+      document.body.appendChild(container)
+
+      // Prefer rendering the actual document root if present
+      const root = container.querySelector('.container') || container
+
+      // Wait for images to load inside the root (html2canvas needs loaded resources)
+      const imgs = Array.from(root.querySelectorAll('img'))
+      if (imgs.length > 0) {
+        await Promise.all(
+          imgs.map(
+            (img) =>
+              new Promise((resolve) => {
+                if (img.complete) return resolve()
+                img.onload = img.onerror = () => resolve()
+              })
+          )
+        )
+      }
+
+      // Use html2pdf to save PDF directly to user's machine
+      await window.html2pdf()
+        .set({
+          margin: 10,
+          filename: `${quotation.number || 'quotation'}.pdf`,
+          image: { type: 'jpeg', quality: 0.98 },
+          html2canvas: { scale: 2, useCORS: true, allowTaint: true },
+          jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
+        })
+        .from(root)
+        .save()
+
+      // cleanup
+      document.body.removeChild(container)
+    } catch (err) {
+      // err may be an Event when script load failed; normalize
+      const message = err && err.message ? err.message : String(err)
+      console.error('PDF generation error:', err, { message })
+      showMessage('error', message || 'Failed to download PDF')
     }
   }
 

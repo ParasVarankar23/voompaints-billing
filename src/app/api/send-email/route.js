@@ -1,6 +1,15 @@
 import { NextResponse } from 'next/server'
 import nodemailer from 'nodemailer'
 
+// Company details used in generated emails / print HTML
+const COMPANY = {
+  name: 'VOOM & JAGDAMB PAINTS',
+  address: 'Shop No 1, Sai Sharan CHS Plot No. 15, Sector 1, Khanda Colony Panvel 410206',
+  phone: '+91 99676 15133 / +91 84229 11456',
+  email: 'sagarnalwade@gmail.com',
+  gstin: '27AIXPN1343G1ZY',
+}
+
 export async function POST(request) {
   try {
     const body = await request.json()
@@ -574,7 +583,7 @@ td {
       <div class="company">
 
         <div class="company-name">
-          VOOM PAINTS
+          ${escapeHtml(COMPANY.name)}
         </div>
 
         <div class="company-tagline">
@@ -582,12 +591,10 @@ td {
         </div>
 
         <div class="company-details">
-          Your Company Address<br>
-          Panvel, Maharashtra<br>
-          Phone: +91 XXXXX XXXXX<br>
-          Email: ${escapeHtml(
-      process.env.SMTP_USER
-    )}
+          ${escapeHtml(COMPANY.address)}<br>
+          ${escapeHtml('Panvel, Maharashtra')}<br>
+          Phone: ${escapeHtml(COMPANY.phone)}<br>
+          Email: ${escapeHtml(COMPANY.email)}
         </div>
 
       </div>
@@ -835,7 +842,7 @@ td {
 
       <div class="thank-you">
         Thank you for choosing
-        <strong>Voom Paints</strong>.
+        <strong>${escapeHtml(COMPANY.name)}</strong>.
       </div>
 
       <div class="note">
@@ -853,6 +860,19 @@ td {
 
 </html>
 `
+
+    // If the caller only wants the generated HTML (no send), return it
+    if (body?.returnHtml) {
+      console.log(
+        `Generated ${documentLabel.toLowerCase()} HTML for preview/download`,
+        { type, id: document.id, number: document.number }
+      )
+
+      return NextResponse.json({
+        success: true,
+        html: htmlContent,
+      })
+    }
 
     // ==========================================
     // SEND EMAIL

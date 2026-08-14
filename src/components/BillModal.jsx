@@ -12,7 +12,6 @@ import {
 // =====================================================
 // BANK DETAILS
 // =====================================================
-
 const BANKS = [
   {
     id: 'canara',
@@ -25,10 +24,18 @@ const BANKS = [
     id: 'saraswat',
     name: 'SARASWAT BANK',
     accountNumber: '810000000009068',
-    branch: 'YOUR SARASWAT BRANCH',
+    branch: 'New Panvel',
     ifsc: 'SRCB0000450',
   },
 ]
+
+const COMPANY = {
+  name: 'VOOM PAINTS',
+  address: 'Shop No 1, Sai Sharan CHS Plot No. 15, Sector 1, Khanda Colony Panvel 410206',
+  phone: '9820605767',
+  email: 'voompaints@gmail.com',
+  gstin: '27CAGPK1649L1Z3',
+}
 
 // =====================================================
 // EMPTY ITEM
@@ -311,10 +318,7 @@ export default function BillModal({
     // VALIDATION
     // -----------------------------------------------
 
-    if (!formData.number.trim()) {
-      setError('Please enter bill number.')
-      return
-    }
+    // Bill number will be assigned by server if left empty
 
     if (!formData.customer.trim()) {
       setError('Please enter customer name.')
@@ -678,47 +682,18 @@ export default function BillModal({
 
                 <div>
 
-                  <label
-                    className="
-                      mb-1.5
-                      block
-                      text-sm
-                      font-semibold
-                      text-slate-700
-                    "
-                  >
+                  <label className="mb-1.5 block text-sm font-semibold text-slate-700">
                     Bill Number
-                    <span className="ml-1 text-red-500">
-                      *
-                    </span>
+                    <span className="ml-2 text-slate-400 text-xs">(assigned automatically)</span>
                   </label>
 
                   <input
                     type="text"
                     value={formData.number}
-                    onChange={(event) =>
-                      updateField(
-                        'number',
-                        event.target.value
-                      )
-                    }
-                    placeholder="INV-001"
-                    required
-                    className="
-                      w-full
-                      rounded-xl
-                      border
-                      border-slate-200
-                      px-4
-                      py-3
-                      text-sm
-                      outline-none
-                      transition
-                      placeholder:text-slate-400
-                      focus:border-blue-500
-                      focus:ring-4
-                      focus:ring-blue-50
-                    "
+                    onChange={(event) => updateField('number', event.target.value)}
+                    placeholder="Will be assigned by server"
+                    readOnly
+                    className="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-4 focus:ring-blue-50"
                   />
 
                 </div>

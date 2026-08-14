@@ -1,32 +1,26 @@
 [
   {
     "id": 1,
-    "number": "1",
-    "date": "2026-08-12",
-    "customer": "Paras Pramod Varankar",
+    "number": "QUO20261",
+    "date": "2026-08-14",
+    "customer": "Paras",
     "customerAddress": "Panvel",
     "customerPhone": "9309940782",
+    "customerEmail": "parasvarankar235@gmail.com",
     "customerGst": "",
     "items": [
       {
-        "description": "Cristal Birla Print",
-        "packSize": "20",
-        "qty": 5,
-        "rate": 5510,
-        "amount": 27550
-      },
-      {
-        "description": "Exterior Primer",
-        "packSize": "50",
-        "qty": 1,
-        "rate": 5280,
-        "amount": 5280
+        "description": "a",
+        "packSize": "4",
+        "qty": 4,
+        "rate": 400,
+        "amount": 1600
       }
     ],
-    "sgst": 0,
-    "cgst": 0,
-    "gst": 0,
-    "total": 32830,
+    "sgst": 144,
+    "cgst": 144,
+    "gst": 288,
+    "total": 1888,
     "bank": {
       "id": "canara",
       "name": "CANARA BANK",
@@ -36,7 +30,7 @@
     },
     "status": "sent",
     "type": "quotation",
-    "createdAt": "2026-08-12T05:06:41.079Z",
-    "updatedAt": "2026-08-12T05:06:41.079Z"
+    "createdAt": "2026-08-14T16:11:30.500Z",
+    "updatedAt": "2026-08-14T16:11:30.500Z"
   }
 ]

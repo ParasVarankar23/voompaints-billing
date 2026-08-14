@@ -116,6 +116,10 @@ export async function PUT(
           ? Number(data.total)
           : bills[index].total,
 
+      // allow status updates (paid, pending, cancelled)
+      status:
+        data.status ?? bills[index].status,
+
       bank:
         data.bank ||
         bills[index].bank ||

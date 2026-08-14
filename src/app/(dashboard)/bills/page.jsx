@@ -9,7 +9,10 @@ import {
   FaSearch,
   FaTimes,
   FaTrash,
-  FaFileInvoice
+  FaFileInvoice,
+  FaCheck,
+  FaBan,
+  FaUndo,
 } from 'react-icons/fa'
 
 import BillModal from '@/components/BillModal'
@@ -258,8 +261,7 @@ export default function BillsPage() {
   // =====================================================
 
   const handlePrint = (bill) => {
-    setSelectedBill(bill)
-    setShowInvoice(true)
+    generatePdfAndDownload(bill)
   }
 
   // =====================================================
@@ -328,6 +330,9 @@ export default function BillsPage() {
         'success',
         `Invoice sent to ${bill.customerEmail}`
       )
+      console.log(
+        `Invoice email sent to ${bill.customerEmail}. Use Download (PDF) to get a clean copy without browser print headers.`
+      )
     } catch (error) {
       console.error(
         'Email error:',
@@ -341,6 +346,100 @@ export default function BillsPage() {
       )
     } finally {
       setSendingEmail(null)
+    }
+  }
+
+  // Download PDF by requesting generated HTML and using html2pdf (loaded from CDN or local import)
+  const generatePdfAndDownload = async (bill) => {
+    try {
+      const res = await fetch('/api/send-email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          to: bill.customerEmail || '',
+          bill: bill,
+          type: 'bill',
+          returnHtml: true,
+        }),
+      })
+
+      const data = await res.json()
+
+      if (!res.ok || !data.html) {
+        throw new Error(data?.message || 'Failed to generate document HTML')
+      }
+
+      if (typeof window.html2pdf === 'undefined') {
+        let loaded = false
+
+        try {
+          const mod = await import('html2pdf.js')
+          const lib = mod?.default || mod
+          if (lib) {
+            window.html2pdf = lib
+            loaded = true
+          }
+        } catch (err) {
+          console.warn('html2pdf dynamic import failed:', err)
+        }
+
+        if (!loaded) {
+          await new Promise((resolve, reject) => {
+            const s = document.createElement('script')
+            s.src = 'https://unpkg.com/html2pdf.js@0.9.3/dist/html2pdf.bundle.min.js'
+            s.async = true
+            s.onload = () => resolve()
+            s.onerror = () => reject(new Error(`Failed to load html2pdf script from ${s.src}`))
+            document.head.appendChild(s)
+          })
+
+          if (typeof window.html2pdf === 'undefined') {
+            throw new Error('html2pdf did not initialize after loading script')
+          }
+        }
+      }
+
+      const container = document.createElement('div')
+      container.style.position = 'fixed'
+      container.style.left = '0'
+      container.style.top = '0'
+      container.style.width = '794px'
+      container.style.visibility = 'hidden'
+      container.style.zIndex = '99999'
+      container.innerHTML = data.html
+      document.body.appendChild(container)
+
+      const root = container.querySelector('.container') || container
+
+      const imgs = Array.from(root.querySelectorAll('img'))
+      if (imgs.length > 0) {
+        await Promise.all(
+          imgs.map(
+            (img) =>
+              new Promise((resolve) => {
+                if (img.complete) return resolve()
+                img.onload = img.onerror = () => resolve()
+              })
+          )
+        )
+      }
+
+      await window.html2pdf()
+        .set({
+          margin: 10,
+          filename: `${bill.number || 'invoice'}.pdf`,
+          image: { type: 'jpeg', quality: 0.98 },
+          html2canvas: { scale: 2, useCORS: true, allowTaint: true },
+          jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
+        })
+        .from(root)
+        .save()
+
+      document.body.removeChild(container)
+    } catch (err) {
+      const message = err && err.message ? err.message : String(err)
+      console.error('PDF generation error:', err, { message })
+      showMessage('error', message || 'Failed to download PDF')
     }
   }
 
@@ -413,6 +512,41 @@ export default function BillsPage() {
 
       default:
         return 'bg-orange-50 text-orange-700 border-orange-100'
+    }
+  }
+
+  // =====================================================
+  // UPDATE STATUS
+  // =====================================================
+
+  const updateBillStatus = async (bill, newStatus) => {
+    if (!bill) return
+
+    const confirmed = window.confirm(
+      `Set status of ${bill.number || ''} to ${newStatus}?`
+    )
+
+    if (!confirmed) return
+
+    try {
+      const response = await fetch(`/api/bills/${bill.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: newStatus }),
+      })
+
+      const data = await response.json()
+
+      if (!response.ok) {
+        throw new Error(data?.message || 'Failed to update status')
+      }
+
+      await fetchBills()
+
+      showMessage('success', `Status updated to ${newStatus}`)
+    } catch (err) {
+      console.error('Status update error:', err)
+      showMessage('error', err.message || 'Failed to update status')
     }
   }
 
@@ -881,6 +1015,69 @@ export default function BillsPage() {
                               <FaTrash />
                             </button>
 
+                            {/* MARK PAID */}
+                            <button
+                              type="button"
+                              onClick={() => updateBillStatus(bill, 'paid')}
+                              title="Mark Paid"
+                              className="
+                                flex
+                                h-9
+                                w-9
+                                items-center
+                                justify-center
+                                rounded-lg
+                                text-slate-400
+                                transition
+                                hover:bg-green-50
+                                hover:text-green-600
+                              "
+                            >
+                              <FaCheck />
+                            </button>
+
+                            {/* MARK PENDING */}
+                            <button
+                              type="button"
+                              onClick={() => updateBillStatus(bill, 'pending')}
+                              title="Mark Pending"
+                              className="
+                                flex
+                                h-9
+                                w-9
+                                items-center
+                                justify-center
+                                rounded-lg
+                                text-slate-400
+                                transition
+                                hover:bg-orange-50
+                                hover:text-orange-600
+                              "
+                            >
+                              <FaUndo />
+                            </button>
+
+                            {/* CANCEL */}
+                            <button
+                              type="button"
+                              onClick={() => updateBillStatus(bill, 'cancelled')}
+                              title="Cancel Bill"
+                              className="
+                                flex
+                                h-9
+                                w-9
+                                items-center
+                                justify-center
+                                rounded-lg
+                                text-slate-400
+                                transition
+                                hover:bg-red-50
+                                hover:text-red-600
+                              "
+                            >
+                              <FaBan />
+                            </button>
+
                           </div>
 
                         </td>
@@ -1108,6 +1305,33 @@ export default function BillsPage() {
                         title="Delete"
                       >
                         <FaTrash />
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => updateBillStatus(bill, 'paid')}
+                        className="flex h-10 items-center justify-center rounded-lg bg-green-50 text-green-600 transition hover:bg-green-100"
+                        title="Mark Paid"
+                      >
+                        <FaCheck />
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => updateBillStatus(bill, 'pending')}
+                        className="flex h-10 items-center justify-center rounded-lg bg-orange-50 text-orange-600 transition hover:bg-orange-100"
+                        title="Mark Pending"
+                      >
+                        <FaUndo />
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => updateBillStatus(bill, 'cancelled')}
+                        className="flex h-10 items-center justify-center rounded-lg bg-red-50 text-red-600 transition hover:bg-red-100"
+                        title="Cancel"
+                      >
+                        <FaBan />
                       </button>
 
                     </div>

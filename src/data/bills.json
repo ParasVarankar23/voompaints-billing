@@ -1,35 +1,29 @@
 [
   {
     "id": 1,
-    "number": "1",
-    "date": "2026-08-12",
+    "number": "INV20261",
+    "date": "2026-08-14",
     "customer": "Paras",
     "customerAddress": "68, Vanjale Gaul Vadi",
     "customerPhone": "9309940782",
+    "customerEmail": "parasvarankar01@gmail.com",
     "customerGst": "",
     "items": [
       {
         "description": "A",
-        "packSize": "1",
-        "qty": 4,
-        "rate": 200,
-        "amount": 800
-      },
-      {
-        "description": "B",
-        "packSize": "3",
+        "packSize": "5",
         "qty": 1,
-        "rate": 32,
-        "amount": 32
+        "rate": 244,
+        "amount": 244
       }
     ],
-    "sgst": 74.88,
-    "cgst": 74.88,
-    "gst": 149.76,
-    "total": 981.76,
-    "bank": "saraswat",
+    "sgst": 21.96,
+    "cgst": 21.96,
+    "gst": 43.92,
+    "total": 287.92,
+    "bank": "canara",
     "type": "bill",
-    "createdAt": "2026-08-12T05:08:41.275Z",
-    "updatedAt": "2026-08-12T05:09:04.537Z"
+    "createdAt": "2026-08-14T16:19:25.989Z",
+    "updatedAt": "2026-08-14T16:19:43.501Z"
   }
 ]
