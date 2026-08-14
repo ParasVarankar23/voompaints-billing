@@ -18,6 +18,9 @@ import QuotationPrint from '@/components/QuotationPrint'
 
 export default function QuotationsPage() {
   const [quotations, setQuotations] = useState([])
+  const [page, setPage] = useState(1)
+  const [limit] = useState(20)
+  const [totalQuotations, setTotalQuotations] = useState(null)
   const [searchTerm, setSearchTerm] = useState('')
   const [showModal, setShowModal] = useState(false)
   const [editingQuotation, setEditingQuotation] = useState(null)
@@ -33,7 +36,7 @@ export default function QuotationsPage() {
 
   useEffect(() => {
     fetchQuotations()
-  }, [])
+  }, [page])
 
   const showMessage = (type, text) => {
     setMessage({
@@ -53,7 +56,7 @@ export default function QuotationsPage() {
     try {
       setLoading(true)
 
-      const response = await fetch('/api/quotations', {
+      const response = await fetch(`/api/quotations?page=${page}&limit=${limit}`, {
         cache: 'no-store',
       })
 
@@ -63,7 +66,16 @@ export default function QuotationsPage() {
 
       const data = await response.json()
 
-      setQuotations(Array.isArray(data) ? data : [])
+      if (Array.isArray(data)) {
+        setQuotations(data)
+        setTotalQuotations(data.length)
+      } else if (data && Array.isArray(data.quotations)) {
+        setQuotations(data.quotations)
+        setTotalQuotations(Number(data.total) || data.quotations.length)
+      } else {
+        setQuotations([])
+        setTotalQuotations(0)
+      }
     } catch (error) {
       console.error('Error fetching quotations:', error)
       showMessage('error', 'Unable to load quotations.')
@@ -412,7 +424,7 @@ export default function QuotationsPage() {
             </h1>
 
             <span className="rounded-full bg-blue-50 px-2.5 py-1 text-xs font-semibold text-blue-600">
-              {quotations.length}
+              {totalQuotations !== null ? totalQuotations : quotations.length}
             </span>
           </div>
 
@@ -421,14 +433,40 @@ export default function QuotationsPage() {
           </p>
         </div>
 
-        <button
-          type="button"
-          onClick={handleNewQuotation}
-          className="flex w-full items-center justify-center gap-2 rounded-xl bg-blue-600 px-5 py-3 text-sm font-semibold text-white transition hover:bg-blue-700 sm:w-auto"
-        >
-          <FaPlus />
-          New Quotation
-        </button>
+        <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setPage(Math.max(1, page - 1))}
+              disabled={page <= 1}
+              className={`px-3 py-2 text-xs rounded-lg ${page <= 1 ? 'bg-slate-100 text-slate-400' : 'bg-white text-slate-600 border border-slate-200'}`}
+            >
+              Prev
+            </button>
+
+            <div className="text-sm text-slate-600 px-2">
+              Page {page}{totalQuotations ? ` of ${Math.ceil(totalQuotations / limit)}` : ''}
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setPage(page + 1)}
+              disabled={totalQuotations !== null && page * limit >= totalQuotations}
+              className={`px-3 py-2 text-xs rounded-lg ${totalQuotations !== null && page * limit >= totalQuotations ? 'bg-slate-100 text-slate-400' : 'bg-white text-slate-600 border border-slate-200'}`}
+            >
+              Next
+            </button>
+          </div>
+
+          <button
+            type="button"
+            onClick={handleNewQuotation}
+            className="flex w-full items-center justify-center gap-2 rounded-xl bg-blue-600 px-5 py-3 text-sm font-semibold text-white transition hover:bg-blue-700 sm:w-auto"
+          >
+            <FaPlus />
+            New Quotation
+          </button>
+        </div>
       </div>
 
       <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
@@ -612,6 +650,33 @@ export default function QuotationsPage() {
               </table>
 
             </div>
+
+              {/* Pagination controls (table area) */}
+              <div className="px-4 py-3 border-t border-slate-100 bg-white flex items-center justify-between">
+                <div className="text-sm text-slate-600">
+                  Showing page {page}{totalQuotations ? ` of ${Math.ceil(totalQuotations / limit)}` : ''}
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setPage(Math.max(1, page - 1))}
+                    disabled={page <= 1}
+                    className={`px-3 py-2 text-xs rounded-lg ${page <= 1 ? 'bg-slate-100 text-slate-400' : 'bg-white text-slate-600 border border-slate-200'}`}
+                  >
+                    Prev
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setPage(page + 1)}
+                    disabled={totalQuotations !== null && page * limit >= totalQuotations}
+                    className={`px-3 py-2 text-xs rounded-lg ${totalQuotations !== null && page * limit >= totalQuotations ? 'bg-slate-100 text-slate-400' : 'bg-white text-slate-600 border border-slate-200'}`}
+                  >
+                    Next
+                  </button>
+                </div>
+              </div>
 
             <div className="space-y-3 p-4 md:hidden">
 

@@ -166,9 +166,9 @@ export default function Sidebar({
         </div>
 
         {/* ================================
-            NAVIGATION
+          NAVIGATION
         ================================= */}
-        <nav className="flex-1 overflow-y-auto px-3 py-5">
+        <nav className="flex-1 px-3 py-5">
 
           {isOpen && (
             <p className="mb-3 px-3 text-[10px] font-bold uppercase tracking-wider text-slate-400">

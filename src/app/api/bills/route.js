@@ -35,8 +35,35 @@ function writeBills(bills) {
   )
 }
 
-export async function GET() {
-  return NextResponse.json(readBills())
+export async function GET(request) {
+  try {
+    const all = readBills()
+
+    // Support pagination via query params: ?page=1&limit=20
+    try {
+      const url = new URL(request.url)
+      const params = url.searchParams
+      const pageParam = params.get('page')
+      const limitParam = params.get('limit')
+
+      if (pageParam || limitParam) {
+        const page = Math.max(1, Number(pageParam) || 1)
+        const limit = Math.max(1, Number(limitParam) || 20)
+        const start = (page - 1) * limit
+        const paged = all.slice(start, start + limit)
+
+        return NextResponse.json({ bills: paged, total: all.length, page, limit })
+      }
+    } catch (e) {
+      // parsing URL failed; fall back to returning full list
+      console.warn('Failed to parse pagination params for /api/bills', e)
+    }
+
+    return NextResponse.json(all)
+  } catch (err) {
+    console.error('GET /api/bills error:', err)
+    return NextResponse.json([], { status: 500 })
+  }
 }
 
 export async function POST(request) {

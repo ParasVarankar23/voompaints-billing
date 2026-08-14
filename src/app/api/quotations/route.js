@@ -40,10 +40,33 @@ function writeQuotations(quotations) {
   )
 }
 
-export async function GET() {
-  return NextResponse.json(
-    readQuotations()
-  )
+export async function GET(request) {
+  try {
+    const all = readQuotations()
+
+    try {
+      const url = new URL(request.url)
+      const params = url.searchParams
+      const pageParam = params.get('page')
+      const limitParam = params.get('limit')
+
+      if (pageParam || limitParam) {
+        const page = Math.max(1, Number(pageParam) || 1)
+        const limit = Math.max(1, Number(limitParam) || 20)
+        const start = (page - 1) * limit
+        const paged = all.slice(start, start + limit)
+
+        return NextResponse.json({ quotations: paged, total: all.length, page, limit })
+      }
+    } catch (e) {
+      console.warn('Failed to parse pagination params for /api/quotations', e)
+    }
+
+    return NextResponse.json(all)
+  } catch (err) {
+    console.error('GET /api/quotations error:', err)
+    return NextResponse.json([], { status: 500 })
+  }
 }
 
 export async function POST(request) {

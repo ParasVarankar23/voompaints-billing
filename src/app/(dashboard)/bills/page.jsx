@@ -24,6 +24,9 @@ export default function BillsPage() {
   // =====================================================
 
   const [bills, setBills] = useState([])
+  const [page, setPage] = useState(1)
+  const [limit] = useState(20)
+  const [totalBills, setTotalBills] = useState(null)
 
   const [searchTerm, setSearchTerm] =
     useState('')
@@ -58,14 +61,14 @@ export default function BillsPage() {
 
   useEffect(() => {
     fetchBills()
-  }, [])
+  }, [page])
 
   const fetchBills = async () => {
     try {
       setLoading(true)
 
       const response = await fetch(
-        '/api/bills',
+        `/api/bills?page=${page}&limit=${limit}`,
         {
           cache: 'no-store',
         }
@@ -77,14 +80,18 @@ export default function BillsPage() {
         )
       }
 
-      const data =
-        await response.json()
+      const data = await response.json()
 
-      setBills(
-        Array.isArray(data)
-          ? data
-          : []
-      )
+      if (Array.isArray(data)) {
+        setBills(data)
+        setTotalBills(data.length)
+      } else if (data && Array.isArray(data.bills)) {
+        setBills(data.bills)
+        setTotalBills(Number(data.total) || data.bills.length)
+      } else {
+        setBills([])
+        setTotalBills(0)
+      }
     } catch (error) {
       console.error(
         'Error fetching bills:',
@@ -625,7 +632,7 @@ export default function BillsPage() {
             </h1>
 
             <span className="rounded-full bg-blue-50 px-2.5 py-1 text-xs font-semibold text-blue-600">
-              {bills.length}
+              {totalBills !== null ? totalBills : bills.length}
             </span>
 
           </div>
@@ -636,32 +643,40 @@ export default function BillsPage() {
 
         </div>
 
-        <button
-          type="button"
-          onClick={handleNewBill}
-          className="
-            flex
-            w-full
-            items-center
-            justify-center
-            gap-2
-            rounded-xl
-            bg-blue-600
-            px-5
-            py-3
-            text-sm
-            font-semibold
-            text-white
-            shadow-sm
-            transition
-            hover:bg-blue-700
-            hover:shadow-md
-            sm:w-auto
-          "
-        >
-          <FaPlus />
-          New Bill
-        </button>
+        <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setPage(Math.max(1, page - 1))}
+              disabled={page <= 1}
+              className={`px-3 py-2 text-xs rounded-lg ${page <= 1 ? 'bg-slate-100 text-slate-400' : 'bg-white text-slate-600 border border-slate-200'}`}
+            >
+              Prev
+            </button>
+
+            <div className="text-sm text-slate-600 px-2">
+              Page {page}{totalBills ? ` of ${Math.ceil(totalBills / limit)}` : ''}
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setPage(page + 1)}
+              disabled={totalBills !== null && page * limit >= totalBills}
+              className={`px-3 py-2 text-xs rounded-lg ${totalBills !== null && page * limit >= totalBills ? 'bg-slate-100 text-slate-400' : 'bg-white text-slate-600 border border-slate-200'}`}
+            >
+              Next
+            </button>
+          </div>
+
+          <button
+            type="button"
+            onClick={handleNewBill}
+            className="flex w-full items-center justify-center gap-2 rounded-xl bg-blue-600 px-5 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-700 sm:w-auto"
+          >
+            <FaPlus />
+            New Bill
+          </button>
+        </div>
 
       </div>
 
@@ -1103,6 +1118,33 @@ export default function BillsPage() {
 
               </table>
 
+            </div>
+
+            {/* Pagination controls (table area) */}
+            <div className="px-4 py-3 border-t border-slate-100 bg-white flex items-center justify-between">
+              <div className="text-sm text-slate-600">
+                Showing page {page}{totalBills ? ` of ${Math.ceil(totalBills / limit)}` : ''}
+              </div>
+
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setPage(Math.max(1, page - 1))}
+                  disabled={page <= 1}
+                  className={`px-3 py-2 text-xs rounded-lg ${page <= 1 ? 'bg-slate-100 text-slate-400' : 'bg-white text-slate-600 border border-slate-200'}`}
+                >
+                  Prev
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setPage(page + 1)}
+                  disabled={totalBills !== null && page * limit >= totalBills}
+                  className={`px-3 py-2 text-xs rounded-lg ${totalBills !== null && page * limit >= totalBills ? 'bg-slate-100 text-slate-400' : 'bg-white text-slate-600 border border-slate-200'}`}
+                >
+                  Next
+                </button>
+              </div>
             </div>
 
             {/* =================================================
