@@ -146,7 +146,7 @@ export default function ClientLayout({ children }) {
       {/* ======================================
           MAIN APPLICATION
       ======================================= */}
-      <div className="flex min-w-0 flex-1 flex-col">
+      <div className={`flex min-w-0 flex-1 flex-col ${isSidebarOpen ? 'lg:pl-64' : 'lg:pl-20'}`}>
 
         {/* ====================================
             NAVBAR
@@ -161,7 +161,7 @@ export default function ClientLayout({ children }) {
         {/* ====================================
             PAGE CONTENT
         ===================================== */}
-        <main className="flex-1 overflow-y-auto overflow-x-hidden p-4 sm:p-6 lg:p-8">
+        <main className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden p-4 sm:p-6 lg:p-8">
 
           {children}
 

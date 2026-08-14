@@ -82,7 +82,9 @@ export default function Sidebar({
 
           ${isOpen ? 'w-64' : 'w-20'}
 
-          lg:relative
+          lg:fixed
+          lg:inset-y-0
+          lg:left-0
           lg:z-30
           lg:shadow-none
 
@@ -168,7 +170,7 @@ export default function Sidebar({
         {/* ================================
           NAVIGATION
         ================================= */}
-        <nav className="flex-1 px-3 py-5">
+        <nav className="flex-1 overflow-y-auto lg:overflow-visible px-3 py-5">
 
           {isOpen && (
             <p className="mb-3 px-3 text-[10px] font-bold uppercase tracking-wider text-slate-400">

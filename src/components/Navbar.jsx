@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import {
   FaBars,
   FaBell,
@@ -17,6 +17,25 @@ export default function Navbar({
   onLogout,
 }) {
   const [profileOpen, setProfileOpen] = useState(false)
+  const profileBtnRef = useRef(null)
+  const profileDropdownRef = useRef(null)
+
+  useEffect(() => {
+    function handleOutsideClick(e) {
+      if (!profileOpen) return
+
+      const btn = profileBtnRef.current
+      const dropdown = profileDropdownRef.current
+
+      if (btn && btn.contains(e.target)) return
+      if (dropdown && dropdown.contains(e.target)) return
+
+      setProfileOpen(false)
+    }
+
+    document.addEventListener('mousedown', handleOutsideClick)
+    return () => document.removeEventListener('mousedown', handleOutsideClick)
+  }, [profileOpen])
 
   const userName =
     user?.name ||
@@ -121,6 +140,7 @@ export default function Navbar({
           <div className="relative">
 
             <button
+              ref={profileBtnRef}
               type="button"
               onClick={() =>
                 setProfileOpen(!profileOpen)
@@ -204,15 +224,17 @@ export default function Navbar({
                 />
 
                 {/* Dropdown */}
-                <div className="
-                  absolute right-0 top-14 z-50
-                  w-64 overflow-hidden
-                  rounded-2xl
-                  border border-slate-200
-                  bg-white
-                  shadow-xl
-                  shadow-slate-200/70
-                ">
+                <div
+                  ref={profileDropdownRef}
+                  className="
+                    absolute right-0 top-14 z-50
+                    w-64 overflow-hidden
+                    rounded-2xl
+                    border border-slate-200
+                    bg-white
+                    shadow-xl
+                    shadow-slate-200/70
+                  ">
 
                   {/* User Details */}
                   <div className="
