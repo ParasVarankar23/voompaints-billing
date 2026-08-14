@@ -71,6 +71,7 @@ export default function Sidebar({
           left-0
           z-50
           flex
+          h-screen
           flex-col
           border-r
           border-slate-200

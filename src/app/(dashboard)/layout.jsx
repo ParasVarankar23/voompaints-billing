@@ -97,7 +97,7 @@ export default function DashboardLayout({
   }
 
   return (
-    <div className="flex min-h-screen bg-[#f5f9ff]">
+    <div className="flex h-screen overflow-hidden bg-[#f5f9ff]">
 
       <Sidebar
         isOpen={sidebarOpen}
@@ -105,7 +105,7 @@ export default function DashboardLayout({
         onLogout={handleLogout}
       />
 
-      <div className={`flex min-w-0 flex-1 flex-col ${sidebarOpen ? 'lg:pl-64' : 'lg:pl-20'}`}>
+      <div className={`flex min-w-0 flex-1 flex-col overflow-hidden ${sidebarOpen ? 'lg:pl-64' : 'lg:pl-20'}`}>
 
         <Navbar
           isSidebarOpen={sidebarOpen}
