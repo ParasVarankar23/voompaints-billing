@@ -1,12 +1,28 @@
+import fs from 'fs'
+import path from 'path'
 import { NextResponse } from 'next/server'
 import nodemailer from 'nodemailer'
 
+function getLogoDataUri() {
+  try {
+    const logoPath = path.join(process.cwd(), 'public', 'logo.png')
+    const logoBuffer = fs.readFileSync(logoPath)
+    return `data:image/png;base64,${logoBuffer.toString('base64')}`
+  } catch (error) {
+    console.warn('Failed to load logo.png for email/PDF branding:', error)
+    return '/logo.png'
+  }
+}
+
+const LOGO_DATA_URI = getLogoDataUri()
+
 // Company details used in generated emails / print HTML
 const COMPANY = {
-  name: 'VOOM & JAGDAMB PAINTS',
-  address: 'Shop No 1, Sai Sharan CHS Plot No. 15, Sector 1, Khanda Colony Panvel 410206',
+  billName: 'VOOM PAINTS',
+  quotationName: 'Voom Paints & Services',
+  address: 'Sai Sharan CHS, Shop No 1, Sector 1, Khanda Colony, Panvel, Navi Mumbai 410206',
   phone: '+91 99676 15133 / +91 84229 11456',
-  email: 'sagarnalwade@gmail.com',
+  email: 'sagarnn84@gmail.com',
   gstin: '27AIXPN1343G1ZY',
 }
 
@@ -113,6 +129,10 @@ export async function POST(request) {
     const documentLabel = isBill
       ? 'Bill'
       : 'Quotation'
+
+    const companyName = isBill
+      ? COMPANY.billName
+      : COMPANY.quotationName
 
     // ==========================================
     // BANK
@@ -235,7 +255,7 @@ export async function POST(request) {
     // HTML EMAIL
     // ==========================================
 
-    const htmlContent = `
+    const billHtmlContent = `
 <!DOCTYPE html>
 
 <html>
@@ -308,12 +328,19 @@ body {
   vertical-align: top;
 }
 
-.company-name {
-  font-size: 28px;
-  font-weight: 800;
-  color: #1d4ed8;
-  letter-spacing: 0.5px;
+.brand-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
 }
+
+.company-logo {
+  width: 84px;
+  height: 84px;
+  object-fit: contain;
+  flex-shrink: 0;
+}
+
 
 .company-tagline {
   margin-top: 5px;
@@ -597,12 +624,22 @@ td {
 
       <div class="company">
 
-        <div class="company-name">
-          ${escapeHtml(COMPANY.name)}
-        </div>
+        <div class="brand-row">
+          <img
+            class="company-logo"
+            src="${LOGO_DATA_URI}"
+            alt="${escapeHtml(companyName)} logo"
+          />
 
-        <div class="company-tagline">
-          Paints • Colours • Solutions
+          <div>
+            <div class="company-name">
+              ${escapeHtml(companyName)}
+            </div>
+
+            <div class="company-tagline">
+              Paints • Colours • Solutions
+            </div>
+          </div>
         </div>
 
         <div class="company-details">
@@ -857,7 +894,7 @@ td {
 
       <div class="thank-you">
         Thank you for choosing
-        <strong>${escapeHtml(COMPANY.name)}</strong>.
+        <strong>${escapeHtml(companyName)}</strong>.
       </div>
 
       <div class="note">
@@ -875,6 +912,10 @@ td {
 
 </html>
 `
+
+    const htmlContent = isBill
+      ? billHtmlContent
+      : buildQuotationOfferHtml(document)
 
     // If the caller only wants the generated HTML (no send), return it
     if (body?.returnHtml) {
@@ -895,12 +936,12 @@ td {
 
     await transporter.sendMail({
       from:
-        `"Voom Paints" <${process.env.SMTP_USER}>`,
+        `"${companyName}" <${process.env.SMTP_USER}>`,
 
       to,
 
       subject:
-        `${documentTitle} ${document.number || ''} - Voom Paints`,
+        `${documentTitle} ${document.number || ''} - ${companyName}`,
 
       html: htmlContent,
     })
@@ -935,6 +976,332 @@ td {
 
     return NextResponse.json(payload, { status: 500 })
   }
+}
+
+// ==========================================
+// QUOTATION OFFER HTML
+// ==========================================
+
+function formatOfferDate(value) {
+  if (!value) return '10-08-2026'
+
+  const date = new Date(value)
+
+  if (Number.isNaN(date.getTime())) {
+    return value
+  }
+
+  return `${String(date.getDate()).padStart(2, '0')}-${String(date.getMonth() + 1).padStart(2, '0')}-${date.getFullYear()}`
+}
+
+function buildQuotationOfferHtml(document) {
+  const customerName = document.customer || 'Prajwal Khandagale'
+  const total = Number(document.total || 0)
+  const estimateTotal = Math.max(total, 0)
+
+  const quoteRows = Array.isArray(document.items) && document.items.length > 0
+    ? document.items.map((item, index) => {
+      const area = escapeHtml(item.area || item.packSize || 'All Area')
+      const areaSqft = escapeHtml(item.packSize || item.area || '0')
+      const surface = escapeHtml(item.surface || item.description || 'Ceiling')
+      const product = escapeHtml(item.product || item.description || 'Tractor Uno')
+      const rate = Number(item.rate || 0)
+      const qty = Number(item.qty || 1)
+      const amount = Number(item.amount || rate * qty || 0)
+
+      return `
+        <tr>
+          <td>${index + 1}</td>
+          <td>${area}</td>
+          <td>${areaSqft}</td>
+          <td>${surface}</td>
+          <td>${product}</td>
+          <td class="right">₹${rate.toFixed(2)}</td>
+          <td class="right">₹${amount.toFixed(2)}</td>
+        </tr>
+      `
+    }).join('')
+    : `
+      <tr>
+        <td>1</td>
+        <td>All Area</td>
+        <td>0</td>
+        <td>Ceiling</td>
+        <td>Tractor Uno</td>
+        <td class="right">₹0.00</td>
+        <td class="right">₹0.00</td>
+      </tr>
+    `
+
+  return `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Quotation</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: Arial, Helvetica, sans-serif;
+      background: #f8fafc;
+      color: #1f2937;
+      padding: 24px;
+    }
+    .quote {
+      max-width: 900px;
+      margin: 0 auto;
+      background: #ffffff;
+      border: 1px solid #e2e8f0;
+      box-shadow: 0 10px 30px rgba(15, 23, 42, 0.06);
+      padding: 36px 28px;
+    }
+    .header-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 18px;
+      margin-bottom: 18px;
+      border-bottom: 1px solid #e2e8f0;
+      padding-bottom: 18px;
+    }
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      flex-wrap: wrap;
+    }
+    .logo {
+      width: 72px;
+      height: 72px;
+      object-fit: contain;
+    }
+    .company-name {
+      font-size: 22px;
+      font-weight: 800;
+      color: #1d4ed8;
+      line-height: 1.2;
+    }
+    .company-address {
+      font-size: 12px;
+      color: #475569;
+      line-height: 1.6;
+      margin-top: 4px;
+    }
+    .heading {
+      font-size: 20px;
+      font-weight: 700;
+      color: #0f172a;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      text-align: right;
+    }
+    .letter {
+      margin-top: 20px;
+      font-size: 14px;
+      line-height: 1.8;
+      color: #334155;
+    }
+    .letter strong { color: #0f172a; }
+    .subject { margin: 8px 0 12px; font-weight: 700; }
+    .to-line { margin: 18px 0 6px; font-weight: 700; }
+    .table-wrap { margin-top: 18px; overflow-x: auto; }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 10px;
+      font-size: 12px;
+    }
+    th, td {
+      border: 1px solid #dbe3ef;
+      padding: 8px 10px;
+      text-align: left;
+      vertical-align: middle;
+    }
+    th {
+      background: #eff6ff;
+      color: #1e40af;
+      font-weight: 700;
+      text-transform: uppercase;
+      font-size: 10px;
+    }
+    .right { text-align: right; }
+    .total-block {
+      margin-top: 18px;
+      font-size: 14px;
+      font-weight: 700;
+      color: #0f172a;
+      text-align: right;
+    }
+    .terms {
+      margin-top: 18px;
+      font-size: 12px;
+      color: #334155;
+      line-height: 1.8;
+      padding-left: 18px;
+    }
+    .terms li { margin-bottom: 6px; }
+    .small { font-size: 12px; color: #475569; }
+    .company-meta {
+      margin-top: 18px;
+      font-size: 12px;
+      color: #475569;
+      line-height: 1.8;
+      padding: 12px 14px;
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      border-radius: 8px;
+    }
+    .totals-box {
+      margin-top: 18px;
+      max-width: 300px;
+      margin-left: auto;
+      font-size: 12px;
+      color: #334155;
+    }
+    .totals-box > div {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 6px 0;
+      border-bottom: 1px solid #e2e8f0;
+    }
+    .grand-total {
+      padding-top: 10px;
+      font-size: 14px;
+      font-weight: 800;
+      color: #0f172a;
+      border-bottom: none;
+    }
+    @media (max-width: 700px) {
+      body { padding: 12px; }
+      .quote { padding: 20px 16px; }
+      .header-row { display: block; }
+      .heading { text-align: left; margin-top: 14px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="quote">
+    <div class="header-row">
+      <div class="brand">
+        <img class="logo" src="${LOGO_DATA_URI}" alt="Voom Paints & Services logo" />
+        <div>
+          <div class="company-name">Voom Paints & Services</div>
+          <div class="company-address">
+            Sai Sharan CHS, Shop No 1, Sector 1, Khanda Colony,<br />
+            Panvel, Navi Mumbai 410206
+          </div>
+        </div>
+      </div>
+      <div class="heading">Quotation</div>
+    </div>
+
+    <div class="letter">
+      <div class="to-line">To. ${escapeHtml(customerName)}</div>
+      <div>Dear Sir,</div>
+      <div class="subject">Subject: Offer for Painting work</div>
+      <div>Date: ${escapeHtml(formatOfferDate(document.date))}</div>
+
+      <p>Voom Paints is an end-to-end, hassle free painting service company, The benefits of employing Voom Paints for your home painting needs is multifold.</p>
+
+      <ul>
+        <li>Wide range of products and specialty finishes</li>
+        <li>Product and budget consultation</li>
+        <li>Trained painters</li>
+        <li>Covering and masking of household items</li>
+        <li>Regular site supervision</li>
+        <li>Cleaning of the site post work completion</li>
+        <li>Authentic Company material only</li>
+        <li>Site evaluation and measurement</li>
+      </ul>
+
+      <p>We take this opportunity to thank you for considering giving your valuable business to us and also for the courtesy extended to us during our discussion.</p>
+      <p>Further to our discussion please find enclosed our painting quotation for the site.</p>
+
+      <div><strong>Painting Estimate :</strong></div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Sr.No.</th>
+              <th>Area</th>
+              <th>Area (sq.ft)</th>
+              <th>Surface</th>
+              <th>Product</th>
+              <th class="right">Rate / sq.ft</th>
+              <th class="right">Amount</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${quoteRows}
+          </tbody>
+        </table>
+      </div>
+
+      <div class="company-meta">
+        <div><strong>GSTIN:</strong> 27AIXPN1343G1ZY</div>
+        <div><strong>Phone:</strong> +91 99676 15133 / +91 84229 11456</div>
+        <div><strong>Email:</strong> sagarnn84@gmail.com</div>
+      </div>
+
+      <div class="totals-box">
+        <div><span>Subtotal</span><strong>₹${Number(document.subtotal || 0).toFixed(2)}</strong></div>
+        <div><span>SGST (9%)</span><strong>₹${Number(document.sgst || 0).toFixed(2)}</strong></div>
+        <div><span>CGST (9%)</span><strong>₹${Number(document.cgst || 0).toFixed(2)}</strong></div>
+        <div class="grand-total"><span>Total</span><strong>₹${Number(estimateTotal || 0).toFixed(2)}</strong></div>
+      </div>
+
+      <p class="small">Note: Above rates are inclusive of LABOUR + MATERIAL. No warranty on leakage, seapage, cracks and undulations.</p>
+      <p class="small">Standard procedure for full painting (interior): covering the furniture, touch up of putty, sanding, 1 coat of primer, 2/3 finish paint, cleaning of site.</p>
+
+      <div><strong>Payment Policy</strong></div>
+      <div>30% advance payment</div>
+      <div>30% after 1st completion of 2 bed.</div>
+      <div>30% after completion of Hall and kitchen putty work</div>
+      <div>10% before completion work</div>
+      <div class="small">*(1st Cheque will be collected at the time of signing the contract)</div>
+      <div class="small">*(Cheques should be collected in the name of "Voom Paints" only.)</div>
+
+      <div><strong>Other Terms &amp; Conditions</strong></div>
+      <ul class="terms">
+        <li>Upgrading to any high-sheen finish enhances visibility of the undulations on wall substrate. Areas related to the rectification of substrate undulations are outside the purview of painting job.</li>
+        <li>All rework claims, shall be subject to inspection of site by Authorized Voom Paints representative.</li>
+        <li>Liability is limited to making good the affected areas only.</li>
+        <li>Work shall commence 3 days from collection of relevant cheques and work order as applicable.</li>
+        <li>Refund paid for any stoppage of work, shall be at the direction of Voom Paints. It shall be limited to the extent of job left unfinished.</li>
+        <li>Orders for a particular shade once accepted will not be changed if paint is tinted.</li>
+        <li>All deadlines for project completion is subject to customer handing over site according to Voom Paints guide lines.</li>
+        <li>Standard waterproofing, civil and painting methodology will be followed.</li>
+        <li>Estimate is valid only for the areas mentioned above. If any additional area is included in the scope of painting, the required amount will be charged from the customer.</li>
+        <li>The amount has to be paid in advance keeping Payment Policy (see above) in mind.</li>
+        <li>Kindly retain these documents for all future communication.</li>
+      </ul>
+
+      <p>In case of any doubt on the surface conditions, you are free to take suggestion and advise from anybody related to the Civil, waterproofing and structural field.</p>
+      <p>In case you need any other information, please feel free to call us.</p>
+
+      <div class="signoff">
+        <div>Warm regards,</div>
+        <div><strong>Sagar Nalawade</strong> (8422911546)</div>
+      </div>
+
+      <p><strong>Some benefits of an Apply- Supply model are mentioned below.</strong></p>
+      <ol>
+        <li>We do a testing of the surface so that you will be aware of the substrate condition.</li>
+        <li>We will inform you in case we observe any abnormality on the surface unearthed during scrapping job, which may require a civil job to be conducted by you.</li>
+        <li>We recommend a proper painting system so that an excellent performance can be expected after the painting is carried out.</li>
+        <li>We submit a thorough estimate with detailed measurement and offer the option of joint measurement prior to the job.</li>
+        <li>We have selected our panel of applicators only after detailed evaluation and trained them regarding the recommended practices so you can be rest assured about the quality of workmanship.</li>
+        <li>Our applicators are specially trained for covering furniture and other valuable accessories before painting job starts and cleaning the leftovers of paint marks etc after job is done.</li>
+        <li>Our dedicated supervisors visit the sites periodically and will update you on the progress of the work.</li>
+      </ol>
+    </div>
+  </div>
+</body>
+</html>
+  `
 }
 
 // ==========================================

@@ -77,6 +77,40 @@ const createDefaultForm = () => ({
 })
 
 // =====================================================
+// VALIDATION HELPERS
+// =====================================================
+
+const validateTextInput = (value) => {
+  return String(value).replace(/\d/g, '')
+}
+
+const validateNumberInput = (value) => {
+  const numStr = String(value).replace(/[^0-9.]/g, '')
+  const parts = numStr.split('.')
+  if (parts.length > 2) return parts[0] + '.' + parts.slice(1).join('')
+  return numStr
+}
+
+const validateEmail = (value) => {
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+  return emailRegex.test(value)
+}
+
+const validatePhone = (value) => {
+  const digitsOnly = String(value).replace(/\D/g, '')
+  return digitsOnly.length === 10
+}
+
+const getMinDate = () => {
+  const today = new Date()
+  return `${today.getFullYear()}-${String(
+    today.getMonth() + 1
+  ).padStart(2, '0')}-${String(
+    today.getDate()
+  ).padStart(2, '0')}`
+}
+
+// =====================================================
 // COMPONENT
 // =====================================================
 
@@ -92,6 +126,10 @@ export default function BillModal({
 
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
+  const [validationErrors, setValidationErrors] = useState({
+    email: '',
+    phone: '',
+  })
 
   // ===================================================
   // LOAD CREATE / EDIT DATA
@@ -332,17 +370,15 @@ export default function BillModal({
       return
     }
 
-    const emailRegex =
-      /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-
-    if (
-      !emailRegex.test(
-        formData.customerEmail.trim()
-      )
-    ) {
+    if (!validateEmail(formData.customerEmail)) {
       setError(
-        'Please enter a valid customer email address.'
+        'Please enter a valid email address (e.g., customer@example.com).'
       )
+      return
+    }
+
+    if (formData.customerPhone && !validatePhone(formData.customerPhone)) {
+      setError('Phone number must be exactly 10 digits.')
       return
     }
 
@@ -726,6 +762,8 @@ export default function BillModal({
                         event.target.value
                       )
                     }
+                    min={getMinDate()}
+                    title="Date cannot be in the past"
                     required
                     className="
                       w-full
@@ -810,13 +848,20 @@ export default function BillModal({
                   <input
                     type="text"
                     value={formData.customer}
-                    onChange={(event) =>
+                    onChange={(event) => {
+                      const validated = validateTextInput(event.target.value)
                       updateField(
                         'customer',
-                        event.target.value
+                        validated
                       )
-                    }
+                    }}
+                    onKeyPress={(e) => {
+                      if (/\d/.test(e.key)) {
+                        e.preventDefault()
+                      }
+                    }}
                     placeholder="Enter customer name"
+                    title="Text only (no numbers)"
                     required
                     className="
                       w-full
@@ -858,29 +903,47 @@ export default function BillModal({
                     value={
                       formData.customerPhone
                     }
-                    onChange={(event) =>
+                    onChange={(event) => {
+                      const validated = validateNumberInput(event.target.value).replace(/[^0-9+\-\s]/g, '')
                       updateField(
                         'customerPhone',
-                        event.target.value
+                        validated
                       )
-                    }
-                    placeholder="+91 XXXXX XXXXX"
-                    className="
+                      const digitsOnly = validated.replace(/\D/g, '')
+                      if (digitsOnly.length === 10) {
+                        setValidationErrors(prev => ({ ...prev, phone: '' }))
+                      }
+                    }}
+                    onBlur={() => {
+                      if (formData.customerPhone && !validatePhone(formData.customerPhone)) {
+                        setValidationErrors(prev => ({ ...prev, phone: 'Phone must be exactly 10 digits' }))
+                      }
+                    }}
+                    placeholder="Enter 10-digit phone number"
+                    title="10-digit phone number (digits only)"
+                    maxLength="10"
+                    className={`
                       w-full
                       rounded-xl
                       border
-                      border-slate-200
                       px-4
                       py-3
                       text-sm
                       outline-none
                       transition
                       placeholder:text-slate-400
-                      focus:border-blue-500
                       focus:ring-4
                       focus:ring-blue-50
-                    "
+                      ${
+                        validationErrors.phone
+                          ? 'border-red-400 bg-red-50 focus:border-red-500'
+                          : 'border-slate-200 focus:border-blue-500'
+                      }
+                    `}
                   />
+                  {validationErrors.phone && (
+                    <p className="mt-1 text-xs text-red-600">{validationErrors.phone}</p>
+                  )}
 
                 </div>
 
@@ -908,30 +971,45 @@ export default function BillModal({
                     value={
                       formData.customerEmail
                     }
-                    onChange={(event) =>
+                    onChange={(event) => {
                       updateField(
                         'customerEmail',
                         event.target.value
                       )
-                    }
+                      if (validateEmail(event.target.value)) {
+                        setValidationErrors(prev => ({ ...prev, email: '' }))
+                      }
+                    }}
+                    onBlur={() => {
+                      if (formData.customerEmail && !validateEmail(formData.customerEmail)) {
+                        setValidationErrors(prev => ({ ...prev, email: 'Invalid email format' }))
+                      }
+                    }}
                     placeholder="customer@example.com"
+                    title="Valid email format required"
                     required
-                    className="
+                    className={`
                       w-full
                       rounded-xl
                       border
-                      border-slate-200
                       px-4
                       py-3
                       text-sm
                       outline-none
                       transition
                       placeholder:text-slate-400
-                      focus:border-blue-500
                       focus:ring-4
                       focus:ring-blue-50
-                    "
+                      ${
+                        validationErrors.email
+                          ? 'border-red-400 bg-red-50 focus:border-red-500'
+                          : 'border-slate-200 focus:border-blue-500'
+                      }
+                    `}
                   />
+                  {validationErrors.email && (
+                    <p className="mt-1 text-xs text-red-600">{validationErrors.email}</p>
+                  )}
 
                   <p
                     className="

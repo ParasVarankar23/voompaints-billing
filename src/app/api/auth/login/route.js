@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 
-const VALID_EMAIL = 'sagarnalwade@gmail.com'
+const VALID_EMAIL = 'sagarnn84@gmail.com'
 const VALID_PASSWORD = 'Sagar123@'
 
 export async function POST(request) {

@@ -1,10 +1,10 @@
 'use client'
 
 const COMPANY = {
-  name: 'VOOM PAINTS & Jagdamb Paints',
+  name: 'JAGDAMB PAINTS',
   address: 'Shop No 1, Sai Sharan CHS Plot No. 15, Sector 1, Khanda Colony Panvel 410206',
   phone: '+91 99676 15133 / +91 84229 11456',
-  email: 'sagarnalwade@gmail.com',
+  email: 'sagarnn84@gmail.com',
   gstin: '27AIXPN1343G1ZY',
 }
 
@@ -72,374 +72,147 @@ export default function QuotationPrint({
     }
 
   return (
-    <div className="quotation-print mx-auto w-full max-w-[794px] bg-white text-slate-800 shadow-xl">
-
-      {/* HEADER */}
-
-      <div className="border-b-4 border-blue-600 px-8 py-7">
-
-        <div className="flex items-start justify-between gap-6">
-
+    <div className="quotation-print mx-auto w-full max-w-[900px] bg-white p-6 text-slate-800 shadow-xl">
+      <div className="mb-6 flex items-center justify-between gap-4 border-b border-slate-200 pb-5">
+        <div className="flex items-center gap-4">
+          <img src="/logo.png" alt="Voom Paints & Services logo" className="h-16 w-16 object-contain" />
           <div>
-            <h1 className="text-3xl font-extrabold tracking-tight text-blue-700">
-              {COMPANY.name}
-            </h1>
-
-            <p className="mt-2 max-w-xs text-xs leading-5 text-slate-500">
-              {COMPANY.address}
-            </p>
-
-            <p className="mt-1 text-xs text-slate-500">
-              Phone: {COMPANY.phone}
-            </p>
-
-            <p className="text-xs text-slate-500">
-              Email: {COMPANY.email}
-            </p>
-
-            <p className="mt-1 text-xs font-semibold text-slate-600">
-              GSTIN: {COMPANY.gstin}
+            <h1 className="text-2xl font-black tracking-tight text-blue-700">Voom Paints & Services</h1>
+            <p className="mt-1 text-xs leading-5 text-slate-500">
+              Sai Sharan CHS, Shop No 1, Sector 1, Khanda Colony,<br />
+              Panvel, Navi Mumbai 410206
             </p>
           </div>
-
-          <div className="text-right">
-
-            <h2 className="text-3xl font-bold uppercase tracking-wide text-slate-800">
-              Quotation
-            </h2>
-
-            <div className="mt-3 space-y-1 text-xs">
-
-              <p>
-                <span className="font-semibold text-slate-500">
-                  Quotation No:
-                </span>{' '}
-                <span className="font-bold">
-                  {quotation.number || '-'}
-                </span>
-              </p>
-
-              <p>
-                <span className="font-semibold text-slate-500">
-                  Date:
-                </span>{' '}
-                {formatDate(quotation.date)}
-              </p>
-
-              {quotation.validUntil && (
-                <p>
-                  <span className="font-semibold text-slate-500">
-                    Valid Until:
-                  </span>{' '}
-                  {formatDate(
-                    quotation.validUntil
-                  )}
-                </p>
-              )}
-
-            </div>
-
-          </div>
-
         </div>
 
+        <div className="text-right text-xl font-bold uppercase tracking-wide text-slate-800">
+          Quotation
+        </div>
       </div>
 
-      {/* CUSTOMER / FROM */}
+      <div className="space-y-4 text-sm leading-7 text-slate-700">
+        <div className="font-bold">To. {quotation.customer || 'Prajwal Khandagale'}</div>
+        <div>Dear Sir,</div>
+        <div className="font-bold">Subject: Offer for Painting work</div>
+        <div>Date: {formatDate(quotation.date) || '10-08-2026'}</div>
 
-      <div className="grid grid-cols-2 border-b border-slate-200">
+        <p>
+          Voom Paints is an end-to-end, hassle free painting service company. The benefits of employing
+          Voom Paints for your home painting needs is multifold.
+        </p>
 
-        <div className="border-r border-slate-200 p-6">
+        <ul className="list-disc pl-6">
+          <li>Wide range of products and specialty finishes</li>
+          <li>Product and budget consultation</li>
+          <li>Trained painters</li>
+          <li>Covering and masking of household items</li>
+          <li>Regular site supervision</li>
+          <li>Cleaning of the site post work completion</li>
+          <li>Authentic Company material only</li>
+          <li>Site evaluation and measurement</li>
+        </ul>
 
-          <p className="mb-2 text-[10px] font-bold uppercase tracking-wider text-blue-600">
-            Quotation To
-          </p>
+        <p>
+          We take this opportunity to thank you for considering giving your valuable business to us and also for the courtesy extended to us during our discussion.
+        </p>
 
-          <h3 className="text-base font-bold text-slate-800">
-            {quotation.customer || '-'}
-          </h3>
+        <p>Further to our discussion please find enclosed our painting quotation for the site.</p>
 
-          <p className="mt-2 whitespace-pre-line text-xs leading-5 text-slate-500">
-            {quotation.customerAddress || '-'}
-          </p>
+        <div className="mt-4 font-bold">Painting Estimate:</div>
 
-          {quotation.customerPhone && (
-            <p className="mt-2 text-xs text-slate-500">
-              Phone: {quotation.customerPhone}
-            </p>
-          )}
-
-          {quotation.customerEmail && (
-            <p className="break-all text-xs text-slate-500">
-              Email: {quotation.customerEmail}
-            </p>
-          )}
-
-          {quotation.customerGst && (
-            <p className="mt-1 text-xs font-semibold text-slate-600">
-              GSTIN: {quotation.customerGst}
-            </p>
-          )}
-
-        </div>
-
-        <div className="p-6">
-
-          <p className="mb-2 text-[10px] font-bold uppercase tracking-wider text-blue-600">
-            From
-          </p>
-
-          <h3 className="text-base font-bold text-slate-800">
-            {COMPANY.name}
-          </h3>
-
-          <p className="mt-2 whitespace-pre-line text-xs leading-5 text-slate-500">
-            {COMPANY.address}
-          </p>
-
-          <p className="mt-2 text-xs text-slate-500">
-            Phone: {COMPANY.phone}
-          </p>
-
-          <p className="text-xs text-slate-500">
-            Email: {COMPANY.email}
-          </p>
-
-          <p className="mt-1 text-xs font-semibold text-slate-600">
-            GSTIN: {COMPANY.gstin}
-          </p>
-
-        </div>
-
-      </div>
-
-      {/* TITLE */}
-
-      <div className="px-8 pt-7">
-
-        <div className="rounded-lg bg-blue-50 px-4 py-3">
-
-          <p className="text-sm font-semibold text-blue-700">
-            Product / Service Details
-          </p>
-
-        </div>
-
-      </div>
-
-      {/* PRODUCTS */}
-
-      <div className="px-8 py-5">
-
-        <table className="w-full border-collapse">
-
-          <thead>
-
-            <tr className="bg-slate-800 text-white">
-
-              <th className="w-10 border border-slate-700 px-3 py-3 text-center text-[10px]">
-                #
-              </th>
-
-              <th className="border border-slate-700 px-3 py-3 text-left text-[10px]">
-                Product / Description
-              </th>
-
-              <th className="w-24 border border-slate-700 px-3 py-3 text-center text-[10px]">
-                Pack Size
-              </th>
-
-              <th className="w-16 border border-slate-700 px-3 py-3 text-center text-[10px]">
-                Qty
-              </th>
-
-              <th className="w-24 border border-slate-700 px-3 py-3 text-right text-[10px]">
-                Rate
-              </th>
-
-              <th className="w-28 border border-slate-700 px-3 py-3 text-right text-[10px]">
-                Amount
-              </th>
-
-            </tr>
-
-          </thead>
-
-          <tbody>
-
-            {items.map((item, index) => {
-
-              const amount =
-                Number(item.amount) ||
-                Number(item.qty || 0) *
-                  Number(item.rate || 0)
-
-              return (
+        <div className="overflow-hidden border border-slate-200">
+          <table className="w-full border-collapse text-xs">
+            <thead className="bg-blue-50">
+              <tr>
+                <th className="border border-slate-200 px-2 py-2 text-left">Sr.No.</th>
+                <th className="border border-slate-200 px-2 py-2 text-left">Area</th>
+                <th className="border border-slate-200 px-2 py-2 text-left">Area (sq.ft)</th>
+                <th className="border border-slate-200 px-2 py-2 text-left">Surface</th>
+                <th className="border border-slate-200 px-2 py-2 text-left">Product</th>
+                <th className="border border-slate-200 px-2 py-2 text-right">Rate / sq.ft</th>
+                <th className="border border-slate-200 px-2 py-2 text-right">Amount</th>
+              </tr>
+            </thead>
+            <tbody>
+              {items.length > 0 ? items.map((item, index) => (
                 <tr key={index}>
-
-                  <td className="border border-slate-200 px-3 py-3 text-center text-xs">
-                    {index + 1}
-                  </td>
-
-                  <td className="border border-slate-200 px-3 py-3 text-xs font-medium">
-                    {item.description || '-'}
-                  </td>
-
-                  <td className="border border-slate-200 px-3 py-3 text-center text-xs">
-                    {item.packSize || '-'}
-                  </td>
-
-                  <td className="border border-slate-200 px-3 py-3 text-center text-xs">
-                    {item.qty || 0}
-                  </td>
-
-                  <td className="border border-slate-200 px-3 py-3 text-right text-xs">
-                    ₹{formatMoney(item.rate)}
-                  </td>
-
-                  <td className="border border-slate-200 px-3 py-3 text-right text-xs font-semibold">
-                    ₹{formatMoney(amount)}
-                  </td>
-
+                  <td className="border border-slate-200 px-2 py-2">{index + 1}</td>
+                  <td className="border border-slate-200 px-2 py-2">{item.area || item.packSize || 'All Area'}</td>
+                  <td className="border border-slate-200 px-2 py-2">{item.packSize || item.area || '0'}</td>
+                  <td className="border border-slate-200 px-2 py-2">{item.surface || item.description || 'Ceiling'}</td>
+                  <td className="border border-slate-200 px-2 py-2">{item.product || item.description || 'Tractor Uno'}</td>
+                  <td className="border border-slate-200 px-2 py-2 text-right">₹{formatMoney(item.rate)}</td>
+                  <td className="border border-slate-200 px-2 py-2 text-right">₹{formatMoney(Number(item.amount) || Number(item.qty || 0) * Number(item.rate || 0))}</td>
                 </tr>
-              )
-            })}
-
-          </tbody>
-
-        </table>
-
-      </div>
-
-      {/* TOTALS */}
-
-      <div className="flex justify-end px-8">
-
-        <div className="w-full max-w-sm">
-
-          <div className="flex justify-between border-b border-slate-100 py-2 text-xs text-slate-600">
-            <span>Subtotal</span>
-            <span className="font-semibold">
-              ₹{formatMoney(subtotal)}
-            </span>
-          </div>
-
-          <div className="flex justify-between border-b border-slate-100 py-2 text-xs text-slate-600">
-            <span>SGST (9%)</span>
-            <span>
-              ₹{formatMoney(sgst)}
-            </span>
-          </div>
-
-          <div className="flex justify-between border-b border-slate-100 py-2 text-xs text-slate-600">
-            <span>CGST (9%)</span>
-            <span>
-              ₹{formatMoney(cgst)}
-            </span>
-          </div>
-
-          <div className="mt-1 flex justify-between rounded-lg bg-blue-600 px-4 py-3 text-white">
-
-            <span className="text-sm font-bold">
-              Grand Total
-            </span>
-
-            <span className="text-sm font-bold">
-              ₹{formatMoney(total)}
-            </span>
-
-          </div>
-
+              )) : (
+                <tr>
+                  <td className="border border-slate-200 px-2 py-2">1</td>
+                  <td className="border border-slate-200 px-2 py-2">All Area</td>
+                  <td className="border border-slate-200 px-2 py-2">0</td>
+                  <td className="border border-slate-200 px-2 py-2">Ceiling</td>
+                  <td className="border border-slate-200 px-2 py-2">Tractor Uno</td>
+                  <td className="border border-slate-200 px-2 py-2 text-right">₹0.00</td>
+                  <td className="border border-slate-200 px-2 py-2 text-right">₹0.00</td>
+                </tr>
+              )}
+            </tbody>
+          </table>
         </div>
 
-      </div>
-
-      {/* BANK + TERMS */}
-
-      <div className="grid grid-cols-2 gap-8 px-8 py-8">
-
-        <div>
-
-          <h3 className="mb-3 text-xs font-bold uppercase tracking-wider text-blue-600">
-            Bank Details
-          </h3>
-
-          <div className="rounded-lg border border-slate-200 p-4 text-xs">
-
-            <p className="font-bold text-slate-800">
-              {bank.name}
-            </p>
-
-            <p className="mt-2 text-slate-500">
-              A/c No.: {bank.accountNumber}
-            </p>
-
-            <p className="mt-1 text-slate-500">
-              Branch: {bank.branch}
-            </p>
-
-            <p className="mt-1 text-slate-500">
-              IFSC: {bank.ifsc}
-            </p>
-
+        <div className="mt-4 rounded-lg border border-slate-200 bg-slate-50 p-4">
+          <div className="flex items-center justify-between gap-3 text-sm text-slate-600">
+            <span>GSTIN</span>
+            <span className="font-semibold text-slate-800">{COMPANY.gstin}</span>
           </div>
-
+          <div className="mt-2 flex items-center justify-between gap-3 text-sm text-slate-600">
+            <span>Phone</span>
+            <span className="font-semibold text-slate-800">{COMPANY.phone}</span>
+          </div>
+          <div className="mt-2 flex items-center justify-between gap-3 text-sm text-slate-600">
+            <span>Email</span>
+            <span className="font-semibold text-slate-800">{COMPANY.email}</span>
+          </div>
         </div>
 
-        <div>
-
-          <h3 className="mb-3 text-xs font-bold uppercase tracking-wider text-blue-600">
-            Notes
-          </h3>
-
-          <div className="text-xs leading-5 text-slate-500">
-            <p>
-              This quotation is valid until the date
-              mentioned above.
-            </p>
-
-            <p className="mt-2">
-              Prices are subject to the applicable
-              GST.
-            </p>
-
-            <p className="mt-2">
-              Thank you for choosing {COMPANY.name}.
-            </p>
-          </div>
-
+        <div className="mt-4 space-y-2 text-sm text-slate-700">
+          <div className="flex justify-between gap-4"><span>Subtotal</span><span>₹{formatMoney(subtotal)}</span></div>
+          <div className="flex justify-between gap-4"><span>SGST (9%)</span><span>₹{formatMoney(sgst)}</span></div>
+          <div className="flex justify-between gap-4"><span>CGST (9%)</span><span>₹{formatMoney(cgst)}</span></div>
+          <div className="flex justify-between gap-4 text-base font-bold"><span>Total</span><span>₹{formatMoney(total)}</span></div>
         </div>
 
-      </div>
+        <p className="text-xs text-slate-500">
+          Note: Above rates are inclusive of LABOUR + MATERIAL. No warranty on leakage, seapage, cracks and undulations.
+        </p>
 
-      {/* SIGNATURE */}
+        <div className="mt-4 font-bold">Payment Policy</div>
+        <div>30% advance payment</div>
+        <div>30% after 1st completion of 2 bed.</div>
+        <div>30% after completion of Hall and kitchen putty work</div>
+        <div>10% before completion work</div>
 
-      <div className="flex justify-end px-8 pb-8">
+        <div className="mt-5 font-bold">Other Terms &amp; Conditions</div>
+        <ul className="list-disc pl-6 text-xs text-slate-600">
+          <li>Upgrading to any high-sheen finish enhances visibility of the undulations on wall substrate.</li>
+          <li>Areas related to the rectification of substrate undulations are outside the purview of painting job.</li>
+          <li>All rework claims, shall be subject to inspection of site by Authorized Voom Paints representative.</li>
+          <li>Liability is limited to making good the affected areas only.</li>
+          <li>Work shall commence 3 days from collection of relevant cheques and work order as applicable.</li>
+          <li>Refund paid for any stoppage of work shall be at the direction of Voom Paints.</li>
+          <li>Orders for a particular shade once accepted will not be changed if paint is tinted.</li>
+        </ul>
 
-        <div className="w-48 text-center">
+        <p className="mt-4">
+          In case of any doubt on the surface conditions, you are free to take suggestion and advise from anybody related to the Civil, waterproofing and structural field.
+        </p>
 
-          <div className="mb-3 flex h-20 items-center justify-center rounded-full border-2 border-blue-600 text-xs font-bold text-blue-600">
-            FOR {COMPANY.name}
-            <br />
-            AUTHORISED
-            <br />
-            SIGNATORY
-          </div>
+        <p>In case you need any other information, please feel free to call us.</p>
 
-          <div className="border-t border-slate-300 pt-2 text-[10px] font-semibold text-slate-500">
-            Authorised Signatory
-          </div>
-
+        <div className="mt-6">
+          <div>Warm regards,</div>
+          <div className="font-bold">Sagar Nalawade (8422911546)</div>
         </div>
-
       </div>
-
-      {/* FOOTER */}
-
-      <div className="border-t border-slate-200 bg-slate-50 px-8 py-4 text-center text-[10px] text-slate-400">
-        This is a computer-generated quotation.
-      </div>
-
     </div>
   )
 }

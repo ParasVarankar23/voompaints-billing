@@ -34,12 +34,56 @@ const COMPANY = {
 }
 
 const createEmptyItem = () => ({
-    description: '',
+    area: '',
     packSize: '',
-    qty: 1,
+    surface: '',
+    product: '',
     rate: 0,
     amount: 0,
 })
+
+const normalizeItem = (item) => ({
+    area: String(item?.area || item?.description || ''),
+    packSize: (item?.packSize ?? '') === '' ? '' : String(item?.packSize ?? ''),
+    surface: String(item?.surface || ''),
+    product: String(item?.product || item?.description || ''),
+    rate: Number(item?.rate || 0),
+    amount: Number(item?.amount || 0),
+})
+
+// Validation helpers
+const validateTextInput = (value) => {
+    // Only allow text, spaces, and basic punctuation - no numbers
+    return String(value).replace(/[0-9]/g, '')
+}
+
+const validateNumberInput = (value) => {
+    // Only allow numbers and decimal point
+    const numStr = String(value).replace(/[^0-9.]/g, '')
+    // Prevent multiple decimal points
+    const parts = numStr.split('.')
+    if (parts.length > 2) return parts[0] + '.' + parts.slice(1).join('')
+    return numStr
+}
+
+const validateEmail = (value) => {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+    return emailRegex.test(value)
+}
+
+const validatePhone = (value) => {
+    const digitsOnly = String(value).replace(/[^0-9]/g, '')
+    return digitsOnly.length === 10
+}
+
+const getMinDate = () => {
+    const today = new Date()
+    return `${today.getFullYear()}-${String(
+        today.getMonth() + 1
+    ).padStart(2, '0')}-${String(
+        today.getDate()
+    ).padStart(2, '0')}`
+}
 
 const getToday = () => {
     const date = new Date()
@@ -74,6 +118,11 @@ export default function QuotationModal({
     const [formData, setFormData] = useState(getDefaultForm())
     const [saving, setSaving] = useState(false)
     const [error, setError] = useState('')
+    const [validationErrors, setValidationErrors] = useState({
+        email: '',
+        phone: '',
+        date: '',
+    })
 
     const generateQuotationNumber = () => {
         const now = new Date()
@@ -105,13 +154,7 @@ export default function QuotationModal({
                 items:
                     Array.isArray(editingQuotation.items) &&
                         editingQuotation.items.length
-                        ? editingQuotation.items.map((item) => ({
-                            description: item.description || '',
-                            packSize: item.packSize || '',
-                            qty: Number(item.qty) || 1,
-                            rate: Number(item.rate) || 0,
-                            amount: Number(item.amount) || 0,
-                        }))
+                        ? editingQuotation.items.map(normalizeItem)
                         : [createEmptyItem()],
                 status: editingQuotation.status || 'draft',
                 bankId: editingQuotation.bankId || 'canara',
@@ -133,14 +176,13 @@ export default function QuotationModal({
 
     const calculatedItems = useMemo(() => {
         return formData.items.map((item) => {
-            const qty = Number(item.qty) || 0
-            const rate = Number(item.rate) || 0
+            const normalized = normalizeItem(item)
+            const areaSqft = Number(normalized.packSize) || 0
+            const rate = Number(normalized.rate) || 0
 
             return {
-                ...item,
-                qty,
-                rate,
-                amount: qty * rate,
+                ...normalized,
+                amount: areaSqft * rate,
             }
         })
     }, [formData.items])
@@ -253,12 +295,22 @@ export default function QuotationModal({
             return
         }
 
+        if (!validateEmail(formData.customerEmail)) {
+            setError('Please enter a valid email address (e.g., customer@example.com).')
+            return
+        }
+
+        if (formData.customerPhone && !validatePhone(formData.customerPhone)) {
+            setError('Phone number must be exactly 10 digits.')
+            return
+        }
+
         // Quotation number is assigned by the server when left empty on purpose.
 
         const validItems = calculatedItems.filter(
             (item) =>
-                item.description.trim() &&
-                item.qty > 0 &&
+                (item.area.trim() || item.surface.trim()) &&
+                Number(item.packSize) > 0 &&
                 item.rate >= 0
         )
 
@@ -319,8 +371,21 @@ export default function QuotationModal({
             (bank) => bank.id === formData.bankId
         ) || BANKS[0]
 
+    // Global CSS to hide number input spinners
+    const numberInputStyle = `
+        input[type='number']::-webkit-outer-spin-button,
+        input[type='number']::-webkit-inner-spin-button {
+            -webkit-appearance: none;
+            margin: 0;
+        }
+        input[type='number'] {
+            -moz-appearance: textfield;
+        }
+    `
+
     return (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/50 p-2 backdrop-blur-sm sm:p-5">
+            <style>{numberInputStyle}</style>
             <div className="flex max-h-[96vh] w-full max-w-5xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl">
 
                 {/* HEADER */}
@@ -402,6 +467,8 @@ export default function QuotationModal({
                                         name="date"
                                         value={formData.date}
                                         onChange={handleChange}
+                                        min={getMinDate()}
+                                        title="Date cannot be in the past"
                                         required
                                         className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm outline-none focus:border-blue-500 focus:bg-white focus:ring-4 focus:ring-blue-50"
                                     />
@@ -417,6 +484,8 @@ export default function QuotationModal({
                                         name="validUntil"
                                         value={formData.validUntil}
                                         onChange={handleChange}
+                                        min={formData.date}
+                                        title="Valid Until date must be on or after the quotation date"
                                         className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm outline-none focus:border-blue-500 focus:bg-white focus:ring-4 focus:ring-blue-50"
                                     />
                                 </div>
@@ -464,8 +533,22 @@ export default function QuotationModal({
                                         type="text"
                                         name="customer"
                                         value={formData.customer}
-                                        onChange={handleChange}
+                                        onChange={(e) => {
+                                            const validated = validateTextInput(e.target.value)
+                                            handleChange({
+                                                target: {
+                                                    name: 'customer',
+                                                    value: validated
+                                                }
+                                            })
+                                        }}
+                                        onKeyPress={(e) => {
+                                            if (/[0-9]/.test(e.key)) {
+                                                e.preventDefault()
+                                            }
+                                        }}
                                         placeholder="Enter customer name"
+                                        title="Text only (no numbers)"
                                         required
                                         className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm outline-none focus:border-blue-500 focus:bg-white focus:ring-4 focus:ring-blue-50"
                                     />
@@ -480,11 +563,29 @@ export default function QuotationModal({
                                         type="email"
                                         name="customerEmail"
                                         value={formData.customerEmail}
-                                        onChange={handleChange}
+                                        onChange={(e) => {
+                                            handleChange(e)
+                                            // Clear error when user starts typing valid email
+                                            if (validateEmail(e.target.value)) {
+                                                setValidationErrors(prev => ({ ...prev, email: '' }))
+                                            }
+                                        }}
+                                        onBlur={() => {
+                                            if (formData.customerEmail && !validateEmail(formData.customerEmail)) {
+                                                setValidationErrors(prev => ({ ...prev, email: 'Invalid email format' }))
+                                            }
+                                        }}
                                         placeholder="customer@example.com"
+                                        title="Valid email format required"
                                         required
-                                        className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm outline-none focus:border-blue-500 focus:bg-white focus:ring-4 focus:ring-blue-50"
+                                        className={`w-full rounded-xl border px-3 py-2.5 text-sm outline-none focus:bg-white focus:ring-4 focus:ring-blue-50 ${validationErrors.email
+                                                ? 'border-red-400 bg-red-50 focus:border-red-500'
+                                                : 'border-slate-200 bg-slate-50 focus:border-blue-500'
+                                            }`}
                                     />
+                                    {validationErrors.email && (
+                                        <p className="mt-1 text-xs text-red-600">{validationErrors.email}</p>
+                                    )}
                                 </div>
 
                                 <div>
@@ -496,10 +597,50 @@ export default function QuotationModal({
                                         type="tel"
                                         name="customerPhone"
                                         value={formData.customerPhone}
-                                        onChange={handleChange}
-                                        placeholder="Enter phone number"
-                                        className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm outline-none focus:border-blue-500 focus:bg-white focus:ring-4 focus:ring-blue-50"
+                                        onChange={(e) => {
+                                            const digitsOnly = e.target.value
+                                                .replace(/\D/g, '')
+                                                .slice(0, 10)
+
+                                            handleChange({
+                                                target: {
+                                                    name: 'customerPhone',
+                                                    value: digitsOnly,
+                                                },
+                                            })
+
+                                            if (digitsOnly.length === 10) {
+                                                setValidationErrors((prev) => ({
+                                                    ...prev,
+                                                    phone: '',
+                                                }))
+                                            }
+                                        }}
+                                        onBlur={() => {
+                                            if (
+                                                formData.customerPhone &&
+                                                formData.customerPhone.length !== 10
+                                            ) {
+                                                setValidationErrors((prev) => ({
+                                                    ...prev,
+                                                    phone: 'Phone must be exactly 10 digits',
+                                                }))
+                                            }
+                                        }}
+                                        placeholder="Enter 10-digit phone number"
+                                        inputMode="numeric"
+                                        maxLength={10}
+                                        pattern="[0-9]{10}"
+                                        required
+                                        className={`w-full rounded-xl border px-3 py-2.5 text-sm outline-none focus:bg-white focus:ring-4 focus:ring-blue-50 ${validationErrors.phone
+                                                ? 'border-red-400 bg-red-50 focus:border-red-500'
+                                                : 'border-slate-200 bg-slate-50 focus:border-blue-500'
+                                            }`}
                                     />
+
+                                    {validationErrors.phone && (
+                                        <p className="mt-1 text-xs text-red-600">{validationErrors.phone}</p>
+                                    )}
                                 </div>
 
                                 <div>
@@ -511,9 +652,19 @@ export default function QuotationModal({
                                         type="text"
                                         name="customerGst"
                                         value={formData.customerGst}
-                                        onChange={handleChange}
+                                        onChange={(e) => {
+                                            const validated = e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 15)
+                                            handleChange({
+                                                target: {
+                                                    name: 'customerGst',
+                                                    value: validated
+                                                }
+                                            })
+                                        }}
                                         placeholder="Customer GSTIN"
-                                        className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm uppercase outline-none focus:border-blue-500 focus:bg-white focus:ring-4 focus:ring-blue-50"
+                                        title="GSTIN format: max 15 characters (letters and numbers)"
+                                        maxLength="15"
+                                        className="w-full resize-none rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm uppercase outline-none focus:border-blue-500 focus:bg-white focus:ring-4 focus:ring-blue-50"
                                     />
                                 </div>
 
@@ -571,20 +722,24 @@ export default function QuotationModal({
                                                 #
                                             </th>
 
-                                            <th className="px-3 py-3 text-left text-xs font-bold text-slate-500">
-                                                Product / Description
+                                            <th className="w-24 px-3 py-3 text-left text-xs font-bold text-slate-500">
+                                                Area
                                             </th>
 
-                                            <th className="w-32 px-3 py-3 text-left text-xs font-bold text-slate-500">
-                                                Pack Size
+                                            <th className="w-28 px-3 py-3 text-left text-xs font-bold text-slate-500">
+                                                Area (sq.ft)
                                             </th>
 
-                                            <th className="w-24 px-3 py-3 text-right text-xs font-bold text-slate-500">
-                                                Qty
+                                            <th className="w-24 px-3 py-3 text-left text-xs font-bold text-slate-500">
+                                                Surface
                                             </th>
 
-                                            <th className="w-32 px-3 py-3 text-right text-xs font-bold text-slate-500">
-                                                Rate
+                                            <th className="w-24 px-3 py-3 text-left text-xs font-bold text-slate-500">
+                                                Product
+                                            </th>
+
+                                            <th className="w-28 px-3 py-3 text-right text-xs font-bold text-slate-500">
+                                                Rate / sq.ft
                                             </th>
 
                                             <th className="w-32 px-3 py-3 text-right text-xs font-bold text-slate-500">
@@ -612,49 +767,23 @@ export default function QuotationModal({
                                                     <td className="px-3 py-3">
                                                         <input
                                                             type="text"
-                                                            value={item.description}
-                                                            onChange={(e) =>
+                                                            value={String(item.area || '')}
+                                                            onChange={(e) => {
+                                                                const validated = validateTextInput(e.target.value)
                                                                 handleItemChange(
                                                                     index,
-                                                                    'description',
-                                                                    e.target.value
+                                                                    'area',
+                                                                    validated
                                                                 )
-                                                            }
-                                                            placeholder="Product name"
+                                                            }}
+                                                            onKeyPress={(e) => {
+                                                                if (/[0-9]/.test(e.key)) {
+                                                                    e.preventDefault()
+                                                                }
+                                                            }}
+                                                            placeholder="e.g., Hall"
+                                                            title="Text only (no numbers)"
                                                             className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none focus:border-blue-500"
-                                                        />
-                                                    </td>
-
-                                                    <td className="px-3 py-3">
-                                                        <input
-                                                            type="text"
-                                                            value={item.packSize}
-                                                            onChange={(e) =>
-                                                                handleItemChange(
-                                                                    index,
-                                                                    'packSize',
-                                                                    e.target.value
-                                                                )
-                                                            }
-                                                            placeholder="1 L"
-                                                            className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none focus:border-blue-500"
-                                                        />
-                                                    </td>
-
-                                                    <td className="px-3 py-3">
-                                                        <input
-                                                            type="number"
-                                                            min="0"
-                                                            step="1"
-                                                            value={item.qty}
-                                                            onChange={(e) =>
-                                                                handleItemChange(
-                                                                    index,
-                                                                    'qty',
-                                                                    e.target.value
-                                                                )
-                                                            }
-                                                            className="w-full rounded-lg border border-slate-200 px-3 py-2 text-right text-sm outline-none focus:border-blue-500"
                                                         />
                                                     </td>
 
@@ -663,15 +792,84 @@ export default function QuotationModal({
                                                             type="number"
                                                             min="0"
                                                             step="0.01"
-                                                            value={item.rate}
-                                                            onChange={(e) =>
+                                                            value={item.packSize ?? ''}
+                                                            onChange={(e) => {
+                                                                const validated = validateNumberInput(e.target.value)
+                                                                handleItemChange(
+                                                                    index,
+                                                                    'packSize',
+                                                                    validated
+                                                                )
+                                                            }}
+                                                            placeholder="0"
+                                                            title="Numbers only (sq.ft)"
+                                                            className="no-spinner w-full rounded-lg border border-slate-200 px-3 py-2 text-right text-sm outline-none focus:border-blue-500"
+                                                        />
+                                                    </td>
+
+                                                    <td className="px-3 py-3">
+                                                        <input
+                                                            type="text"
+                                                            value={String(item.surface || '')}
+                                                            onChange={(e) => {
+                                                                const validated = validateTextInput(e.target.value)
+                                                                handleItemChange(
+                                                                    index,
+                                                                    'surface',
+                                                                    validated
+                                                                )
+                                                            }}
+                                                            onKeyPress={(e) => {
+                                                                if (/[0-9]/.test(e.key)) {
+                                                                    e.preventDefault()
+                                                                }
+                                                            }}
+                                                            placeholder="e.g., Ceiling"
+                                                            title="Text only (no numbers)"
+                                                            className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none focus:border-blue-500"
+                                                        />
+                                                    </td>
+
+                                                    <td className="px-3 py-3">
+                                                        <input
+                                                            type="text"
+                                                            value={String(item.product || '')}
+                                                            onChange={(e) => {
+                                                                const validated = validateTextInput(e.target.value)
+                                                                handleItemChange(
+                                                                    index,
+                                                                    'product',
+                                                                    validated
+                                                                )
+                                                            }}
+                                                            onKeyPress={(e) => {
+                                                                if (/[0-9]/.test(e.key)) {
+                                                                    e.preventDefault()
+                                                                }
+                                                            }}
+                                                            placeholder="e.g., Tractor Uno"
+                                                            title="Text only (no numbers)"
+                                                            className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none focus:border-blue-500"
+                                                        />
+                                                    </td>
+
+                                                    <td className="px-3 py-3">
+                                                        <input
+                                                            type="number"
+                                                            min="0"
+                                                            step="0.01"
+                                                            value={item.rate || 0}
+                                                            onChange={(e) => {
+                                                                const validated = validateNumberInput(e.target.value)
                                                                 handleItemChange(
                                                                     index,
                                                                     'rate',
-                                                                    e.target.value
+                                                                    validated
                                                                 )
-                                                            }
-                                                            className="w-full rounded-lg border border-slate-200 px-3 py-2 text-right text-sm outline-none focus:border-blue-500"
+                                                            }}
+                                                            placeholder="0.00"
+                                                            title="Numbers only (rate per sq.ft)"
+                                                            className="no-spinner w-full rounded-lg border border-slate-200 px-3 py-2 text-right text-sm outline-none focus:border-blue-500"
                                                         />
                                                     </td>
 

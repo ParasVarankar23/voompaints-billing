@@ -33,16 +33,16 @@ const COMPANY = {
     name: 'VOOM PAINTS',
 
     address:
-        'Your Voom Paints Address, Panvel, Maharashtra',
+        'Shop No 1, Sai Sharan CHS Plot No. 15, Sector 1, Khanda Colony Panvel 410206',
 
     phone:
-        '+91 XXXXX XXXXX',
+        '+91 99676 15133 / +91 84229 11456',
 
     email:
-        'parasvarankar01@gmail.com',
+        'sagarnn84@gmail.com',
 
     gstin:
-        'YOUR COMPANY GSTIN',
+        '27AIXPN1343G1ZY',
 }
 
 // =====================================================
@@ -181,23 +181,11 @@ export default function InvoicePrint({
 
                             <div className="flex items-start gap-3">
 
-                                <div
-                                    className="
-                    flex
-                    h-14
-                    w-14
-                    shrink-0
-                    items-center
-                    justify-center
-                    rounded-xl
-                    bg-blue-600
-                    text-xl
-                    font-black
-                    text-white
-                  "
-                                >
-                                    V
-                                </div>
+                                <img
+                                    src="/logo.png"
+                                    alt="VOOM PAINTS logo"
+                                    className="h-16 w-16 object-contain sm:h-20 sm:w-20"
+                                />
 
                                 <div>
 
