@@ -10,21 +10,21 @@
     "customerGst": "",
     "items": [
       {
-        "description": "A",
+        "description": "a",
         "packSize": "4",
-        "qty": 1,
-        "rate": 400,
-        "amount": 400
+        "qty": 3,
+        "rate": 44,
+        "amount": 132
       }
     ],
-    "sgst": 36,
-    "cgst": 36,
-    "gst": 72,
-    "total": 472,
+    "sgst": 11.88,
+    "cgst": 11.88,
+    "gst": 23.76,
+    "total": 155.76,
     "bank": "canara",
     "type": "bill",
-    "createdAt": "2026-08-17T14:28:00.075Z",
-    "updatedAt": "2026-08-17T14:28:08.745Z",
+    "createdAt": "2026-08-17T14:45:53.463Z",
+    "updatedAt": "2026-08-17T14:45:58.336Z",
     "status": "paid"
   }
 ]

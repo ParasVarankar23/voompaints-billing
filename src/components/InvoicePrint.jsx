@@ -184,7 +184,7 @@ export default function InvoicePrint({
                                 <img
                                     src="/logo.png"
                                     alt="VOOM PAINTS logo"
-                                    className="h-16 w-16 object-contain sm:h-20 sm:w-20"
+                                    className="h-16 w-46 object-contain sm:h-20 sm:w-20"
                                 />
 
                                 <div>
