@@ -1,1 +1,37 @@
-[]
+[
+  {
+    "id": 1,
+    "number": "QUO20261",
+    "date": "2026-08-17",
+    "customer": "Paras",
+    "customerAddress": "Panvel",
+    "customerPhone": "9309940782",
+    "customerEmail": "parasvarankar235@gmail.com",
+    "customerGst": "",
+    "items": [
+      {
+        "area": "Hall",
+        "packSize": "400",
+        "surface": "Ceiling",
+        "product": "Tractor",
+        "rate": 50,
+        "amount": 20000
+      }
+    ],
+    "sgst": 1800,
+    "cgst": 1800,
+    "gst": 3600,
+    "total": 23600,
+    "bank": {
+      "id": "canara",
+      "name": "CANARA BANK",
+      "accountNumber": "52153070008808",
+      "branch": "Kalamboli",
+      "ifsc": "CNRB0015215"
+    },
+    "status": "sent",
+    "type": "quotation",
+    "createdAt": "2026-08-17T14:26:32.043Z",
+    "updatedAt": "2026-08-17T14:26:32.043Z"
+  }
+]

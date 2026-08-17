@@ -1,1 +1,30 @@
-[]
+[
+  {
+    "id": 1,
+    "number": "INV20261",
+    "date": "2026-08-17",
+    "customer": "Paras",
+    "customerAddress": "Panvel",
+    "customerPhone": "9309940782",
+    "customerEmail": "parasvarankar235@gmail.com",
+    "customerGst": "",
+    "items": [
+      {
+        "description": "A",
+        "packSize": "4",
+        "qty": 1,
+        "rate": 400,
+        "amount": 400
+      }
+    ],
+    "sgst": 36,
+    "cgst": 36,
+    "gst": 72,
+    "total": 472,
+    "bank": "canara",
+    "type": "bill",
+    "createdAt": "2026-08-17T14:28:00.075Z",
+    "updatedAt": "2026-08-17T14:28:08.745Z",
+    "status": "paid"
+  }
+]
