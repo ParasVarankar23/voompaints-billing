@@ -8,6 +8,8 @@ import {
   FaFileAlt,
   FaSignOutAlt,
   FaReceipt,
+  FaBoxOpen,
+  FaEnvelope,
   FaChevronLeft,
   FaChevronRight,
   FaTimes,
@@ -32,9 +34,19 @@ export default function Sidebar({
       icon: FaFileInvoice,
     },
     {
+      path: '/products',
+      label: 'Products',
+      icon: FaBoxOpen,
+    },
+    {
       path: '/quotations',
       label: 'Quotations',
       icon: FaFileAlt,
+    },
+    {
+      path: '/email-logs',
+      label: 'Email Logs',
+      icon: FaEnvelope,
     },
   ]
 

@@ -1,0 +1,32 @@
+[
+  {
+    "id": 1,
+    "recipient": "parasvarankar235@gmail.com",
+    "sender": "",
+    "documentType": "bill",
+    "documentNumber": "INV20261",
+    "status": "failed",
+    "message": "SMTP_USER or SMTP_PASS is missing in .env.local",
+    "createdAt": "2026-10-20T11:42:16.841Z"
+  },
+  {
+    "id": 2,
+    "recipient": "parasvarankar235@gmail.com",
+    "sender": "parasvarankar235@gmail.com",
+    "documentType": "bill",
+    "documentNumber": "INV20261",
+    "status": "failed",
+    "message": "SMTP_USER or SMTP_PASS is missing in .env.local",
+    "createdAt": "2026-10-20T11:44:59.908Z"
+  },
+  {
+    "id": 3,
+    "recipient": "parasvarankar235@gmail.com",
+    "sender": "parasvarankar235@gmail.com",
+    "documentType": "bill",
+    "documentNumber": "INV20261",
+    "status": "failed",
+    "message": "Invalid login: 535-5.7.8 Username and Password not accepted. For more information, go to\n535 5.7.8  https://support.google.com/mail/?p=BadCredentials 5a478bee46e88-36081fa5a6esm41700377eec.16 - gsmtp",
+    "createdAt": "2026-10-20T11:45:47.210Z"
+  }
+]

@@ -1,6 +1,7 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import {
   FaTimes,
   FaPlus,
@@ -42,12 +43,205 @@ const COMPANY = {
 // =====================================================
 
 const createEmptyItem = () => ({
+  productId: null,
+  productLabel: '',
   description: '',
+  brand: '',
   packSize: '',
   qty: 1,
   rate: 0,
   amount: 0,
 })
+
+const getProductLabel = (product) =>
+  [product.name, product.brand, product.packSize]
+    .filter(Boolean)
+    .join(' · ')
+
+function ProductPicker({
+  item,
+  products,
+  onSelect,
+  onQueryChange,
+}) {
+  const [open, setOpen] = useState(false)
+  const [query, setQuery] = useState('')
+  const [highlightedIndex, setHighlightedIndex] = useState(0)
+  const [position, setPosition] = useState(null)
+  const inputRef = useRef(null)
+  const menuRef = useRef(null)
+
+  const filteredProducts = useMemo(() => {
+    const normalizedQuery = query.trim().toLowerCase()
+    if (!normalizedQuery) return products
+
+    return products.filter((product) =>
+      [product.name, product.brand, product.packSize]
+        .some((value) => String(value || '').toLowerCase().includes(normalizedQuery))
+    )
+  }, [products, query])
+
+  useEffect(() => {
+    if (!open || !inputRef.current) return
+
+    const updatePosition = () => {
+      const rect = inputRef.current.getBoundingClientRect()
+      const width = Math.min(Math.max(rect.width, 280), 420)
+      const left = Math.max(8, Math.min(rect.left, window.innerWidth - width - 8))
+      const estimatedHeight = Math.min(280, 76 + filteredProducts.length * 58)
+      const hasRoomBelow = window.innerHeight - rect.bottom >= estimatedHeight
+
+      setPosition({
+        left,
+        top: hasRoomBelow
+          ? rect.bottom + 6
+          : Math.max(8, rect.top - estimatedHeight - 6),
+        width,
+        maxHeight: Math.min(280, window.innerHeight - 24),
+      })
+    }
+
+    updatePosition()
+    window.addEventListener('resize', updatePosition)
+    window.addEventListener('scroll', updatePosition, true)
+
+    return () => {
+      window.removeEventListener('resize', updatePosition)
+      window.removeEventListener('scroll', updatePosition, true)
+    }
+  }, [open, filteredProducts.length])
+
+  useEffect(() => {
+    if (!open) return
+
+    const closeOnOutsideClick = (event) => {
+      if (
+        !inputRef.current?.contains(event.target) &&
+        !menuRef.current?.contains(event.target)
+      ) {
+        setOpen(false)
+      }
+    }
+
+    document.addEventListener('mousedown', closeOnOutsideClick)
+    return () => document.removeEventListener('mousedown', closeOnOutsideClick)
+  }, [open])
+
+  const value = open
+    ? query
+    : item.productLabel || item.description
+
+  const chooseProduct = (product) => {
+    onSelect(product)
+    setQuery('')
+    setOpen(false)
+  }
+
+  const dropdown = open && position && typeof document !== 'undefined'
+    ? createPortal(
+      <div
+        ref={menuRef}
+        className="fixed z-[100] overflow-y-auto rounded-xl border border-slate-200 bg-white py-1 shadow-xl shadow-slate-900/15"
+        style={{
+          left: position.left,
+          top: position.top,
+          width: position.width,
+          maxHeight: position.maxHeight,
+        }}
+        role="listbox"
+      >
+        {filteredProducts.length > 0 ? (
+          filteredProducts.map((product, index) => (
+            <button
+              key={product.id}
+              type="button"
+              role="option"
+              aria-selected={index === highlightedIndex}
+              onMouseDown={(event) => event.preventDefault()}
+              onMouseEnter={() => setHighlightedIndex(index)}
+              onClick={() => chooseProduct(product)}
+              className={`flex w-full items-center justify-between gap-4 px-3.5 py-3 text-left transition ${
+                index === highlightedIndex
+                  ? 'bg-blue-50'
+                  : 'hover:bg-slate-50'
+              }`}
+            >
+              <span className="min-w-0">
+                <span className="block truncate text-sm font-semibold text-slate-800">
+                  {product.name}
+                </span>
+                <span className="mt-0.5 block truncate text-xs text-slate-500">
+                  {[product.brand, product.packSize].filter(Boolean).join(' · ')}
+                </span>
+              </span>
+              <span className="shrink-0 text-sm font-semibold text-slate-700">
+                ₹{Number(product.price || 0).toLocaleString('en-IN', {
+                  minimumFractionDigits: 2,
+                  maximumFractionDigits: 2,
+                })}
+              </span>
+            </button>
+          ))
+        ) : (
+          <p className="px-4 py-5 text-center text-sm text-slate-500">
+            No products match “{query}”.
+          </p>
+        )}
+      </div>,
+      document.body
+    )
+    : null
+
+  return (
+    <>
+      <input
+        ref={inputRef}
+        type="text"
+        role="combobox"
+        aria-autocomplete="list"
+        aria-expanded={open}
+        value={value}
+        onFocus={() => {
+          setQuery(item.description || '')
+          setHighlightedIndex(0)
+          setOpen(true)
+        }}
+        onChange={(event) => {
+          const nextQuery = event.target.value
+          setQuery(nextQuery)
+          setHighlightedIndex(0)
+          onQueryChange(nextQuery)
+        }}
+        onKeyDown={(event) => {
+          if (event.key === 'Escape') {
+            setOpen(false)
+          } else if (event.key === 'ArrowDown' && filteredProducts.length) {
+            event.preventDefault()
+            setHighlightedIndex((current) =>
+              Math.min(current + 1, filteredProducts.length - 1)
+            )
+          } else if (event.key === 'ArrowUp' && filteredProducts.length) {
+            event.preventDefault()
+            setHighlightedIndex((current) => Math.max(current - 1, 0))
+          } else if (
+            event.key === 'Enter' &&
+            open &&
+            filteredProducts[highlightedIndex]
+          ) {
+            event.preventDefault()
+            chooseProduct(filteredProducts[highlightedIndex])
+          }
+        }}
+        onBlur={() => {
+          window.setTimeout(() => setOpen(false), 120)
+        }}
+        placeholder="Search or choose a product"
+        className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-50"
+      />
+      {dropdown}
+    </>
+  )
+}
 
 // =====================================================
 // DEFAULT FORM
@@ -130,6 +324,34 @@ export default function BillModal({
     email: '',
     phone: '',
   })
+  const [products, setProducts] = useState([])
+  const [catalogError, setCatalogError] = useState('')
+
+  useEffect(() => {
+    if (!isOpen) return
+
+    const loadProducts = async () => {
+      setCatalogError('')
+
+      try {
+        const response = await fetch('/api/products', {
+          cache: 'no-store',
+        })
+        const data = await response.json()
+
+        if (!response.ok || !Array.isArray(data)) {
+          throw new Error(data?.message || 'Unable to load product catalog.')
+        }
+
+        setProducts(data)
+      } catch (loadError) {
+        console.error('Error loading products for bill:', loadError)
+        setCatalogError('Product catalog could not be loaded. You can still enter product details manually.')
+      }
+    }
+
+    loadProducts()
+  }, [isOpen])
 
   // ===================================================
   // LOAD CREATE / EDIT DATA
@@ -149,7 +371,10 @@ export default function BillModal({
             const rate = Number(item.rate || 0)
 
             return {
+              productId: item.productId || null,
+              productLabel: item.productLabel || '',
               description: item.description || '',
+              brand: item.brand || '',
               packSize: item.packSize || '',
               qty,
               rate,
@@ -295,6 +520,44 @@ export default function BillModal({
     })
   }
 
+  const selectProduct = (index, product) => {
+    setFormData((previous) => {
+      const items = [...previous.items]
+      const updatedItem = {
+        ...items[index],
+        productId: product.id,
+        productLabel: getProductLabel(product),
+        description: product.name,
+        brand: product.brand,
+        packSize: product.packSize,
+        rate: Number(product.price),
+      }
+      updatedItem.amount =
+        (Number(updatedItem.qty) || 0) * updatedItem.rate
+      items[index] = updatedItem
+
+      return { ...previous, items }
+    })
+  }
+
+  const updateProductQuery = (index, value) => {
+    setFormData((previous) => {
+      const items = [...previous.items]
+      items[index] = {
+        ...items[index],
+        productId: null,
+        productLabel: value,
+        description: value,
+        brand: '',
+        packSize: '',
+        rate: 0,
+        amount: 0,
+      }
+
+      return { ...previous, items }
+    })
+  }
+
   // ===================================================
   // ADD ITEM
   // ===================================================
@@ -406,8 +669,13 @@ export default function BillModal({
         const rate = Number(item.rate || 0)
 
         return {
+          productId: item.productId || null,
+          productLabel: item.productLabel || '',
           description:
             item.description.trim(),
+
+          brand:
+            item.brand?.trim() || '',
 
           packSize:
             item.packSize?.trim() || '',
@@ -1326,6 +1594,18 @@ export default function BillModal({
 
               </div>
 
+              {catalogError && (
+                <p className="mb-3 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-700">
+                  {catalogError}
+                </p>
+              )}
+
+              {!catalogError && products.length === 0 && (
+                <p className="mb-3 rounded-lg bg-slate-50 px-3 py-2 text-xs text-slate-500">
+                  No saved products yet. Add them from Products in the sidebar, or enter bill items manually.
+                </p>
+              )}
+
               {/* DESKTOP TABLE */}
 
               <div
@@ -1390,32 +1670,15 @@ export default function BillModal({
 
                           <td className="px-3 py-3">
 
-                            <input
-                              type="text"
-                              value={
-                                item.description
+                            <ProductPicker
+                              item={item}
+                              products={products}
+                              onSelect={(product) =>
+                                selectProduct(index, product)
                               }
-                              onChange={(event) =>
-                                updateItem(
-                                  index,
-                                  'description',
-                                  event.target.value
-                                )
+                              onQueryChange={(value) =>
+                                updateProductQuery(index, value)
                               }
-                              placeholder="Product name"
-                              className="
-                                w-full
-                                rounded-lg
-                                border
-                                border-slate-200
-                                px-3
-                                py-2
-                                text-sm
-                                outline-none
-                                focus:border-blue-500
-                                focus:ring-2
-                                focus:ring-blue-50
-                              "
                             />
 
                           </td>
@@ -1646,31 +1909,15 @@ export default function BillModal({
                           Product
                         </label>
 
-                        <input
-                          type="text"
-                          value={
-                            item.description
+                        <ProductPicker
+                          item={item}
+                          products={products}
+                          onSelect={(product) =>
+                            selectProduct(index, product)
                           }
-                          onChange={(event) =>
-                            updateItem(
-                              index,
-                              'description',
-                              event.target.value
-                            )
+                          onQueryChange={(value) =>
+                            updateProductQuery(index, value)
                           }
-                          placeholder="Product name"
-                          className="
-                            w-full
-                            rounded-lg
-                            border
-                            border-slate-200
-                            bg-white
-                            px-3
-                            py-2.5
-                            text-sm
-                            outline-none
-                            focus:border-blue-500
-                          "
                         />
 
                       </div>

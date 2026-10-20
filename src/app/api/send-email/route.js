@@ -2,6 +2,7 @@ import fs from 'fs'
 import path from 'path'
 import { NextResponse } from 'next/server'
 import nodemailer from 'nodemailer'
+import { appendEmailLog } from '@/lib/email-logs'
 
 function getLogoDataUri() {
   try {
@@ -27,8 +28,18 @@ const COMPANY = {
 }
 
 export async function POST(request) {
+  let logContext = {
+    recipient: '',
+    sender: process.env.SMTP_USER || '',
+    documentType: 'unknown',
+    documentNumber: '',
+  }
+  let shouldLogEmail = true
+  let emailWasSent = false
+
   try {
     const body = await request.json()
+    shouldLogEmail = !body?.returnHtml
 
     const {
       to,
@@ -39,12 +50,26 @@ export async function POST(request) {
 
     // Support both bill and quotation
     const document = quotation || bill
+    logContext = {
+      recipient: typeof to === 'string' ? to : '',
+      sender: process.env.SMTP_USER || '',
+      documentType: type || 'unknown',
+      documentNumber: document?.number || '',
+    }
 
     // ==========================================
     // VALIDATION
     // ==========================================
 
     if (!to) {
+      if (shouldLogEmail) {
+        appendEmailLog({
+          ...logContext,
+          status: 'failed',
+          message: 'Recipient email is required',
+        })
+      }
+
       return NextResponse.json(
         {
           success: false,
@@ -55,6 +80,14 @@ export async function POST(request) {
     }
 
     if (!document) {
+      if (shouldLogEmail) {
+        appendEmailLog({
+          ...logContext,
+          status: 'failed',
+          message: 'Bill or quotation data is required',
+        })
+      }
+
       return NextResponse.json(
         {
           success: false,
@@ -73,6 +106,14 @@ export async function POST(request) {
       !process.env.SMTP_USER ||
       !process.env.SMTP_PASS
     ) {
+      if (shouldLogEmail) {
+        appendEmailLog({
+          ...logContext,
+          status: 'failed',
+          message: 'SMTP_USER or SMTP_PASS is missing in .env.local',
+        })
+      }
+
       return NextResponse.json(
         {
           success: false,
@@ -945,6 +986,7 @@ td {
 
       html: htmlContent,
     })
+    emailWasSent = true
 
     console.log(
       `Sent ${documentLabel.toLowerCase()} email to ${to}`,
@@ -955,6 +997,25 @@ td {
       }
     )
 
+    try {
+      if (shouldLogEmail) {
+        appendEmailLog({
+          ...logContext,
+          status: 'sent',
+          message: 'Email sent successfully',
+        })
+      }
+    } catch (logError) {
+      console.error('Failed to save successful email log:', logError)
+      return NextResponse.json(
+        {
+          success: false,
+          message: 'Email was sent, but its log could not be saved. Check the email logs before retrying.',
+        },
+        { status: 500 }
+      )
+    }
+
     return NextResponse.json({
       success: true,
       message:
@@ -963,9 +1024,25 @@ td {
   } catch (error) {
     console.error('Email error:', error)
 
+    const failureMessage = error?.code === 'EAUTH'
+      ? 'Gmail rejected the SMTP login. Check that SMTP_USER is the same Google account used to create the App Password, then enter a current 16-character Google App Password in SMTP_PASS without spaces. Do not use your regular Gmail password.'
+      : error?.message || 'Failed to send email'
+
+    if (shouldLogEmail && !emailWasSent) {
+      try {
+        appendEmailLog({
+          ...logContext,
+          status: 'failed',
+          message: failureMessage,
+        })
+      } catch (logError) {
+        console.error('Failed to save failed email log:', logError)
+      }
+    }
+
     const payload = {
       success: false,
-      message: error?.message || 'Failed to send email',
+      message: failureMessage,
       code: error?.code || null,
     }
 

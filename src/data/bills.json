@@ -2,7 +2,7 @@
   {
     "id": 1,
     "number": "INV20261",
-    "date": "2026-08-17",
+    "date": "2026-10-20",
     "customer": "Paras",
     "customerAddress": "Panvel",
     "customerPhone": "9309940782",
@@ -10,21 +10,33 @@
     "customerGst": "",
     "items": [
       {
-        "description": "a",
-        "packSize": "4",
-        "qty": 3,
-        "rate": 44,
-        "amount": 132
+        "productId": 1,
+        "productLabel": "Wall Paint · 1 · 2",
+        "description": "Wall Paint",
+        "brand": "1",
+        "packSize": "2",
+        "qty": 4,
+        "rate": 500,
+        "amount": 2000
+      },
+      {
+        "productId": 2,
+        "productLabel": "Paint Brush · Optus · 1",
+        "description": "Paint Brush",
+        "brand": "Optus",
+        "packSize": "1",
+        "qty": 5,
+        "rate": 100,
+        "amount": 500
       }
     ],
-    "sgst": 11.88,
-    "cgst": 11.88,
-    "gst": 23.76,
-    "total": 155.76,
+    "sgst": 225,
+    "cgst": 225,
+    "gst": 450,
+    "total": 2950,
     "bank": "canara",
     "type": "bill",
-    "createdAt": "2026-08-17T14:45:53.463Z",
-    "updatedAt": "2026-08-17T14:45:58.336Z",
-    "status": "paid"
+    "createdAt": "2026-10-20T11:42:10.549Z",
+    "updatedAt": "2026-10-20T11:42:10.549Z"
   }
 ]

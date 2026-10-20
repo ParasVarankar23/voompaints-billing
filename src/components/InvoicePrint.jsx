@@ -433,6 +433,11 @@ export default function InvoicePrint({
                                                     <td className="px-3 py-3 text-xs font-semibold text-slate-700">
                                                         {item.description ||
                                                             '-'}
+                                                        {item.brand && (
+                                                            <span className="mt-0.5 block text-[10px] font-normal text-slate-500">
+                                                                {item.brand}
+                                                            </span>
+                                                        )}
                                                     </td>
 
                                                     <td className="px-3 py-3 text-center text-xs text-slate-500">

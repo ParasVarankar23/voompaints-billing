@@ -1,0 +1,20 @@
+[
+  {
+    "id": 1,
+    "name": "Wall Paint",
+    "brand": "1",
+    "packSize": "2",
+    "price": 500,
+    "createdAt": "2026-10-20T11:40:16.742Z",
+    "updatedAt": "2026-10-20T11:40:16.742Z"
+  },
+  {
+    "id": 2,
+    "name": "Paint Brush",
+    "brand": "Optus",
+    "packSize": "1",
+    "price": 100,
+    "createdAt": "2026-10-20T11:40:55.870Z",
+    "updatedAt": "2026-10-20T11:40:55.870Z"
+  }
+]
