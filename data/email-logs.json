@@ -8,5 +8,35 @@
     "documentNumber": "",
     "status": "failed",
     "message": "The SMTP socket or TLS handshake failed. Check the terminal diagnostic and verify the system clock, TLS certificate chain, SMTP port, and network security software."
+  },
+  {
+    "id": "1792498600842-8fp6y9",
+    "timestamp": "2026-10-20T12:16:40.842Z",
+    "recipient": "parasvarankar01@gmail.com",
+    "sender": "parasvarankar235@gmail.com",
+    "documentType": "test",
+    "documentNumber": "",
+    "status": "failed",
+    "message": "The SMTP socket or TLS handshake failed. Check the terminal diagnostic and verify the system clock, TLS certificate chain, SMTP port, and network security software."
+  },
+  {
+    "id": "1792498683342-97uhi6",
+    "timestamp": "2026-10-20T12:18:03.342Z",
+    "recipient": "parasvarankar01@gmail.com",
+    "sender": "",
+    "documentType": "test",
+    "documentNumber": "",
+    "status": "failed",
+    "message": "For Gmail, use SMTP_PORT=587 with SMTP_SECURE=false, or port 465 with SMTP_SECURE=true."
+  },
+  {
+    "id": "1792498715371-46v0bs",
+    "timestamp": "2026-10-20T12:18:35.371Z",
+    "recipient": "parasvarankar01@gmail.com",
+    "sender": "parasvarankar235@gmail.com",
+    "documentType": "test",
+    "documentNumber": "",
+    "status": "failed",
+    "message": "The SMTP connection timed out. Check your network or firewall."
   }
 ]
