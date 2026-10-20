@@ -27,6 +27,52 @@ const COMPANY = {
   gstin: '27AIXPN1343G1ZY',
 }
 
+const emailAttemptsInProgress = new Set()
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+
+function recordEmailLog(entry) {
+  try {
+    appendEmailLog(entry)
+  } catch {
+    console.error('Unable to persist email audit log.')
+  }
+}
+
+function getSafeEmailFailure(error) {
+  if (error instanceof SyntaxError) {
+    return {
+      code: 'INVALID_REQUEST',
+      message: 'The email request was invalid. Check the bill details and try again.',
+      status: 400,
+    }
+  }
+
+  if (error?.code === 'EAUTH' || error?.responseCode === 535) {
+    return {
+      code: 'SMTP_AUTH_FAILED',
+      message: 'Gmail rejected the SMTP login. Check SMTP_USER and use a current Google App Password as SMTP_PASS.',
+      status: 502,
+    }
+  }
+
+  if (
+    ['ECONNECTION', 'ECONNREFUSED', 'ETIMEDOUT', 'ESOCKET', 'ETLS', 'EDNS']
+      .includes(error?.code)
+  ) {
+    return {
+      code: 'SMTP_CONNECTION_FAILED',
+      message: 'Could not connect securely to the SMTP server. Check SMTP_HOST, SMTP_PORT, and network access.',
+      status: 502,
+    }
+  }
+
+  return {
+    code: 'EMAIL_SEND_FAILED',
+    message: 'The email could not be sent. Check the email configuration and try again.',
+    status: 502,
+  }
+}
+
 export async function POST(request) {
   let logContext = {
     recipient: '',
@@ -41,18 +87,13 @@ export async function POST(request) {
     const body = await request.json()
     shouldLogEmail = !body?.returnHtml
 
-    const {
-      to,
-      bill,
-      quotation,
-      type,
-    } = body
+    const { to, bill, quotation, type } = body || {}
 
     // Support both bill and quotation
     const document = quotation || bill
     logContext = {
       recipient: typeof to === 'string' ? to : '',
-      sender: process.env.SMTP_USER || '',
+      sender: '',
       documentType: type || 'unknown',
       documentNumber: document?.number || '',
     }
@@ -61,100 +102,42 @@ export async function POST(request) {
     // VALIDATION
     // ==========================================
 
-    if (!to) {
-      if (shouldLogEmail) {
-        appendEmailLog({
-          ...logContext,
-          status: 'failed',
-          message: 'Recipient email is required',
-        })
-      }
-
+    if (typeof to !== 'string' || !EMAIL_PATTERN.test(to.trim())) {
+      if (shouldLogEmail) recordEmailLog({
+        ...logContext,
+        status: 'failed',
+        message: 'A valid recipient email address is required.',
+      })
       return NextResponse.json(
         {
           success: false,
-          message: 'Recipient email is required',
+          code: 'INVALID_RECIPIENT',
+          message: 'Enter a valid recipient email address.',
         },
         { status: 400 }
       )
     }
-
-    if (!document) {
-      if (shouldLogEmail) {
-        appendEmailLog({
-          ...logContext,
-          status: 'failed',
-          message: 'Bill or quotation data is required',
-        })
-      }
-
-      return NextResponse.json(
-        {
-          success: false,
-          message:
-            'Bill or quotation data is required',
-        },
-        { status: 400 }
-      )
-    }
-
-    // ==========================================
-    // SMTP CONFIGURATION
-    // ==========================================
 
     if (
-      !process.env.SMTP_USER ||
-      !process.env.SMTP_PASS
+      !document ||
+      typeof document !== 'object' ||
+      !['bill', 'quotation'].includes(type) ||
+      !String(document.number || '').trim() ||
+      !String(document.customer || '').trim()
     ) {
-      if (shouldLogEmail) {
-        appendEmailLog({
-          ...logContext,
-          status: 'failed',
-          message: 'SMTP_USER or SMTP_PASS is missing in .env.local',
-        })
-      }
-
+      if (shouldLogEmail) recordEmailLog({
+        ...logContext,
+        status: 'failed',
+        message: 'Required bill or quotation details are missing.',
+      })
       return NextResponse.json(
         {
           success: false,
-          message:
-            'SMTP_USER or SMTP_PASS is missing in .env.local',
+          code: 'INVALID_DOCUMENT',
+          message: 'Required bill or quotation details are missing.',
         },
-        { status: 500 }
+        { status: 400 }
       )
-    }
-
-    // Allow self-signed certificates in development or when explicitly enabled.
-    // For production, set SMTP_ALLOW_SELF_SIGNED to 'false' (or unset) for stricter checks.
-    const allowSelfSigned =
-      process.env.SMTP_ALLOW_SELF_SIGNED === 'true' ||
-      process.env.NODE_ENV !== 'production'
-
-    const transporter = nodemailer.createTransport({
-      host:
-        process.env.SMTP_HOST ||
-        'smtp.gmail.com',
-
-      port:
-        Number(
-          process.env.SMTP_PORT || 587
-        ),
-
-      secure: false,
-
-      auth: {
-        user: process.env.SMTP_USER,
-        pass: process.env.SMTP_PASS,
-      },
-
-      tls: {
-        // If allowed, do not reject self-signed certs (useful for dev/testing)
-        rejectUnauthorized: !allowSelfSigned ? true : false,
-      },
-    })
-
-    if (allowSelfSigned) {
-      console.warn('send-email: allowing self-signed SMTP certificates (SMTP_ALLOW_SELF_SIGNED=true or non-production NODE_ENV)')
     }
 
     // ==========================================
@@ -960,61 +943,173 @@ td {
 
     // If the caller only wants the generated HTML (no send), return it
     if (body?.returnHtml) {
-      console.log(
-        `Generated ${documentLabel.toLowerCase()} HTML for preview/download`,
-        { type, id: document.id, number: document.number }
-      )
-
       return NextResponse.json({
         success: true,
         html: htmlContent,
       })
     }
 
+    const requiredSmtpVariables = ['SMTP_USER', 'SMTP_PASS']
+    const missingSmtpVariables = requiredSmtpVariables.filter(
+      (name) => !process.env[name]?.trim()
+    )
+    const smtpPort = Number(process.env.SMTP_PORT || 587)
+    const smtpHost = process.env.SMTP_HOST?.trim() || 'smtp.gmail.com'
+    const secureSetting = process.env.SMTP_SECURE?.trim().toLowerCase()
+    const smtpSecure = secureSetting
+      ? secureSetting === 'true'
+      : smtpPort === 465
+
+    if (missingSmtpVariables.length > 0) {
+      const message = `Email configuration is incomplete. Set ${missingSmtpVariables.join(' and ')} in the project-root .env.local file.`
+      if (shouldLogEmail) recordEmailLog({
+        ...logContext,
+        status: 'failed',
+        message,
+      })
+
+      return NextResponse.json(
+        {
+          success: false,
+          code: 'SMTP_CONFIG_MISSING',
+          message,
+          missing: missingSmtpVariables,
+        },
+        { status: 503 }
+      )
+    }
+
+    if (!process.env.SMTP_HOST?.trim() || !process.env.SMTP_PORT?.trim()) {
+      const missing = [
+        ...(!process.env.SMTP_HOST?.trim() ? ['SMTP_HOST'] : []),
+        ...(!process.env.SMTP_PORT?.trim() ? ['SMTP_PORT'] : []),
+      ]
+      const message = `Email configuration is incomplete. Set ${missing.join(' and ')} in the project-root .env.local file.`
+      if (shouldLogEmail) recordEmailLog({
+        ...logContext,
+        status: 'failed',
+        message,
+      })
+
+      return NextResponse.json(
+        {
+          success: false,
+          code: 'SMTP_CONFIG_MISSING',
+          message,
+          missing,
+        },
+        { status: 503 }
+      )
+    }
+
+    if (
+      !Number.isInteger(smtpPort) ||
+      ![465, 587].includes(smtpPort) ||
+      !['true', 'false', ''].includes(secureSetting) ||
+      (smtpPort === 465 && !smtpSecure) ||
+      (smtpPort === 587 && smtpSecure)
+    ) {
+      const message = 'SMTP_PORT and SMTP_SECURE must be 587/false or 465/true.'
+      if (shouldLogEmail) recordEmailLog({
+        ...logContext,
+        status: 'failed',
+        message,
+      })
+
+      return NextResponse.json(
+        {
+          success: false,
+          code: 'SMTP_CONFIG_INVALID',
+          message,
+        },
+        { status: 503 }
+      )
+    }
+
+    if (process.env.SMTP_PASS.trim() === process.env.SMTP_USER.trim()) {
+      const message = 'SMTP_PASS must be a Google App Password, not the Gmail address or regular account password.'
+      if (shouldLogEmail) recordEmailLog({
+        ...logContext,
+        status: 'failed',
+        message,
+      })
+
+      return NextResponse.json(
+        {
+          success: false,
+          code: 'SMTP_CONFIG_INVALID',
+          message,
+        },
+        { status: 503 }
+      )
+    }
+
+    if (!EMAIL_PATTERN.test(process.env.SMTP_USER.trim())) {
+      const message = 'SMTP_USER must be a valid Gmail address.'
+      if (shouldLogEmail) recordEmailLog({
+        ...logContext,
+        status: 'failed',
+        message,
+      })
+
+      return NextResponse.json(
+        {
+          success: false,
+          code: 'SMTP_CONFIG_INVALID',
+          message,
+        },
+        { status: 503 }
+      )
+    }
+
+    logContext.sender = process.env.SMTP_USER.trim()
+    const transporter = nodemailer.createTransport({
+      host: smtpHost,
+      port: smtpPort,
+      secure: smtpSecure,
+      ...(smtpPort === 587 ? { requireTLS: true } : {}),
+      auth: {
+        user: process.env.SMTP_USER.trim(),
+        pass: process.env.SMTP_PASS.trim().replace(/\s/g, ''),
+      },
+    })
+
     // ==========================================
     // SEND EMAIL
     // ==========================================
 
-    await transporter.sendMail({
-      from:
-        `"${companyName}" <${process.env.SMTP_USER}>`,
-
-      to,
-
-      subject:
-        `${documentTitle} ${document.number || ''} - ${companyName}`,
-
-      html: htmlContent,
-    })
-    emailWasSent = true
-
-    console.log(
-      `Sent ${documentLabel.toLowerCase()} email to ${to}`,
-      {
-        type,
-        id: document.id,
-        number: document.number,
-      }
-    )
-
-    try {
-      if (shouldLogEmail) {
-        appendEmailLog({
-          ...logContext,
-          status: 'sent',
-          message: 'Email sent successfully',
-        })
-      }
-    } catch (logError) {
-      console.error('Failed to save successful email log:', logError)
+    const recipient = to.trim()
+    const attemptKey = `${type}:${document.id || document.number}:${recipient.toLowerCase()}`
+    if (emailAttemptsInProgress.has(attemptKey)) {
       return NextResponse.json(
         {
           success: false,
-          message: 'Email was sent, but its log could not be saved. Check the email logs before retrying.',
+          code: 'EMAIL_ALREADY_IN_PROGRESS',
+          message: 'This email is already being sent. Wait for it to finish before trying again.',
         },
-        { status: 500 }
+        { status: 409 }
       )
     }
+
+    emailAttemptsInProgress.add(attemptKey)
+    try {
+      await transporter.verify()
+      await transporter.sendMail({
+        from: `"${companyName}" <${process.env.SMTP_USER.trim()}>`,
+        to: recipient,
+        subject: `${documentTitle} ${document.number || ''} - ${companyName}`,
+        html: htmlContent,
+      })
+    } finally {
+      emailAttemptsInProgress.delete(attemptKey)
+    }
+    emailWasSent = true
+
+    if (shouldLogEmail) recordEmailLog({
+      ...logContext,
+      status: 'sent',
+      message: 'Email sent successfully',
+    })
 
     return NextResponse.json({
       success: true,
@@ -1022,36 +1117,29 @@ td {
         `${documentTitle} sent successfully`,
     })
   } catch (error) {
-    console.error('Email error:', error)
-
-    const failureMessage = error?.code === 'EAUTH'
-      ? 'Gmail rejected the SMTP login. Check that SMTP_USER is the same Google account used to create the App Password, then enter a current 16-character Google App Password in SMTP_PASS without spaces. Do not use your regular Gmail password.'
-      : error?.message || 'Failed to send email'
+    const failure = getSafeEmailFailure(error)
+    console.error('Email delivery failed:', {
+      code: failure.code,
+      smtpCode: error?.code || 'unknown',
+      responseCode: error?.responseCode || null,
+    })
 
     if (shouldLogEmail && !emailWasSent) {
-      try {
-        appendEmailLog({
-          ...logContext,
-          status: 'failed',
-          message: failureMessage,
-        })
-      } catch (logError) {
-        console.error('Failed to save failed email log:', logError)
-      }
+      recordEmailLog({
+        ...logContext,
+        status: 'failed',
+        message: failure.message,
+      })
     }
 
-    const payload = {
-      success: false,
-      message: failureMessage,
-      code: error?.code || null,
-    }
-
-    // Include stack trace only in non-production for debugging
-    if (process.env.NODE_ENV !== 'production') {
-      payload.stack = error?.stack
-    }
-
-    return NextResponse.json(payload, { status: 500 })
+    return NextResponse.json(
+      {
+        success: false,
+        code: failure.code,
+        message: failure.message,
+      },
+      { status: failure.status }
+    )
   }
 }
 

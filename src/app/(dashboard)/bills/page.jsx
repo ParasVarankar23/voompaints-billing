@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import {
   FaEdit,
   FaEnvelope,
@@ -48,6 +48,7 @@ export default function BillsPage() {
 
   const [sendingEmail, setSendingEmail] =
     useState(null)
+  const emailRequestInProgress = useRef(false)
 
   const [message, setMessage] =
     useState({
@@ -287,6 +288,8 @@ export default function BillsPage() {
   const handleSendEmail = async (
     bill
   ) => {
+    if (emailRequestInProgress.current) return
+
     if (!bill?.customerEmail) {
       showMessage(
         'error',
@@ -303,6 +306,8 @@ export default function BillsPage() {
     if (!confirmed) {
       return
     }
+
+    emailRequestInProgress.current = true
 
     try {
       setSendingEmail(bill.id)
@@ -333,38 +338,18 @@ export default function BillsPage() {
         )
       }
 
-      // Log server response and notify user
-      console.log('send-email response:', data)
       showMessage(
         'success',
-        `Invoice sent to ${bill.customerEmail}`
-      )
-      // Fallback browser alert so user sees immediate confirmation
-      try {
-        window.alert(data?.message || `Invoice sent to ${bill.customerEmail}`)
-      } catch (e) {
-        // ignore if alert unavailable
-      }
-      console.log(
-        `Invoice email sent to ${bill.customerEmail}. Use Download (PDF) to get a clean copy without browser print headers.`
+        'Invoice email sent successfully.'
       )
     } catch (error) {
-      console.error(
-        'Email error:',
-        error
-      )
-
       showMessage(
         'error',
         error.message ||
         'Failed to send email.'
       )
-      try {
-        window.alert(error.message || 'Failed to send email.')
-      } catch (e) {
-        // ignore if alert unavailable
-      }
     } finally {
+      emailRequestInProgress.current = false
       setSendingEmail(null)
     }
   }
@@ -587,7 +572,7 @@ export default function BillsPage() {
             fixed
             right-4
             top-20
-            z-[200]
+            z-200
             max-w-sm
             rounded-xl
             border
