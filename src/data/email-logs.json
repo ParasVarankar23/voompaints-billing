@@ -1,3 +1,42 @@
 [
-  
+  {
+    "id": 1,
+    "recipient": "parasvarankar01@gmail.com",
+    "documentType": "test",
+    "documentNumber": "",
+    "sender": "parasvarankar235@gmail.com",
+    "status": "failed",
+    "message": "The secure SMTP handshake failed. Check SMTP_PORT and SMTP_SECURE, and ensure standard TLS certificate verification can succeed.",
+    "createdAt": "2026-10-20T12:04:16.859Z"
+  },
+  {
+    "id": 2,
+    "recipient": "parasvarankar235@gmail.com",
+    "sender": "parasvarankar235@gmail.com",
+    "documentType": "bill",
+    "documentNumber": "INV20261",
+    "status": "failed",
+    "message": "The secure SMTP handshake failed. Check SMTP_PORT and SMTP_SECURE, and ensure standard TLS certificate verification can succeed.",
+    "createdAt": "2026-10-20T12:08:01.567Z"
+  },
+  {
+    "id": 3,
+    "recipient": "parasvarankar01@gmail.com",
+    "documentType": "test",
+    "documentNumber": "",
+    "sender": "parasvarankar235@gmail.com",
+    "status": "failed",
+    "message": "The secure SMTP handshake failed. Check SMTP_PORT and SMTP_SECURE, and ensure standard TLS certificate verification can succeed.",
+    "createdAt": "2026-10-20T12:08:01.616Z"
+  },
+  {
+    "id": 4,
+    "recipient": "parasvarankar01@gmail.com",
+    "documentType": "test",
+    "documentNumber": "",
+    "sender": "parasvarankar235@gmail.com",
+    "status": "failed",
+    "message": "The SMTP TLS handshake failed. Check the underlying server diagnostic, TLS certificate validity, system date and time, and SMTP port/security settings.",
+    "createdAt": "2026-10-20T12:12:14.177Z"
+  }
 ]

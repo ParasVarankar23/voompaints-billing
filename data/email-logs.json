@@ -1,0 +1,12 @@
+[
+  {
+    "id": "1792498445004-6loog8",
+    "timestamp": "2026-10-20T12:14:05.004Z",
+    "recipient": "parasvarankar01@gmail.com",
+    "sender": "parasvarankar235@gmail.com",
+    "documentType": "test",
+    "documentNumber": "",
+    "status": "failed",
+    "message": "The SMTP socket or TLS handshake failed. Check the terminal diagnostic and verify the system clock, TLS certificate chain, SMTP port, and network security software."
+  }
+]

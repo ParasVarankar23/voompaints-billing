@@ -1,39 +1,64 @@
-import fs from 'fs'
-import path from 'path'
+import fs from 'node:fs'
+import path from 'node:path'
 
-const dataPath = path.join(
-  process.cwd(),
-  'src',
-  'data',
-  'email-logs.json'
-)
+const LOG_DIRECTORY = path.join(process.cwd(), 'data')
+const LOG_FILE = path.join(LOG_DIRECTORY, 'email-logs.json')
+const MAX_LOG_ENTRIES = 2000
 
-export function readEmailLogs() {
-  if (!fs.existsSync(dataPath)) {
-    return []
+function ensureLogFile() {
+  if (!fs.existsSync(LOG_DIRECTORY)) {
+    fs.mkdirSync(LOG_DIRECTORY, { recursive: true })
   }
 
-  const logs = JSON.parse(fs.readFileSync(dataPath, 'utf8'))
-  if (!Array.isArray(logs)) {
-    throw new Error('Email logs data must be a JSON array')
+  if (!fs.existsSync(LOG_FILE)) {
+    fs.writeFileSync(LOG_FILE, '[]', 'utf8')
   }
-
-  return logs
 }
 
-export function appendEmailLog(entry) {
-  const logs = readEmailLogs()
-  const id = logs.reduce(
-    (max, log) => Math.max(max, Number(log.id) || 0),
-    0
-  ) + 1
+export function readEmailLogs() {
+  ensureLogFile()
 
-  const log = {
-    id,
-    ...entry,
-    createdAt: new Date().toISOString(),
+  try {
+    const raw = fs.readFileSync(LOG_FILE, 'utf8')
+    const logs = JSON.parse(raw)
+
+    return Array.isArray(logs) ? logs : []
+  } catch (error) {
+    console.error('Unable to read email audit logs:', error?.message)
+
+    return []
+  }
+}
+
+export function appendEmailLog(entry = {}) {
+  ensureLogFile()
+
+  const existingLogs = readEmailLogs()
+
+  const safeEntry = {
+    id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    timestamp: new Date().toISOString(),
+    recipient: String(entry.recipient || ''),
+    sender: String(entry.sender || ''),
+    documentType: String(entry.documentType || 'unknown'),
+    documentNumber: String(entry.documentNumber || ''),
+    status: entry.status === 'sent' ? 'sent' : 'failed',
+    message: String(entry.message || ''),
   }
 
-  fs.writeFileSync(dataPath, JSON.stringify([...logs, log], null, 2), 'utf8')
-  return log
+  existingLogs.push(safeEntry)
+
+  const trimmedLogs = existingLogs.slice(-MAX_LOG_ENTRIES)
+
+  const temporaryFile = `${LOG_FILE}.tmp`
+
+  fs.writeFileSync(
+    temporaryFile,
+    JSON.stringify(trimmedLogs, null, 2),
+    'utf8'
+  )
+
+  fs.renameSync(temporaryFile, LOG_FILE)
+
+  return safeEntry
 }

@@ -18,6 +18,105 @@ import {
 import BillModal from '@/components/BillModal'
 //import InvoicePrint from '@/components/InvoicePrint'
 
+async function createBillPdfBlob(bill) {
+  const response = await fetch('/api/send-email', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      to: bill.customerEmail || '',
+      bill,
+      type: 'bill',
+      returnHtml: true,
+    }),
+  })
+  const data = await response.json()
+
+  if (!response.ok || !data.html) {
+    throw new Error(data?.message || 'Failed to generate invoice PDF.')
+  }
+
+  if (typeof window.html2pdf === 'undefined') {
+    let loaded = false
+
+    try {
+      const module = await import('html2pdf.js')
+      const library = module?.default || module
+      if (library) {
+        window.html2pdf = library
+        loaded = true
+      }
+    } catch (error) {
+      console.warn('html2pdf dynamic import failed:', error)
+    }
+
+    if (!loaded) {
+      await new Promise((resolve, reject) => {
+        const script = document.createElement('script')
+        script.src = 'https://unpkg.com/html2pdf.js@0.9.3/dist/html2pdf.bundle.min.js'
+        script.async = true
+        script.onload = resolve
+        script.onerror = () => reject(
+          new Error('Unable to load the PDF generator.')
+        )
+        document.head.appendChild(script)
+      })
+
+      if (typeof window.html2pdf === 'undefined') {
+        throw new Error('The PDF generator did not initialize.')
+      }
+    }
+  }
+
+  const container = document.createElement('div')
+  container.style.position = 'fixed'
+  container.style.left = '0'
+  container.style.top = '0'
+  container.style.width = '794px'
+  container.style.visibility = 'hidden'
+  container.style.zIndex = '99999'
+  container.innerHTML = data.html
+  document.body.appendChild(container)
+
+  try {
+    const root = container.querySelector('.container') || container
+    const images = Array.from(root.querySelectorAll('img'))
+
+    await Promise.all(
+      images.map((image) => new Promise((resolve) => {
+        if (image.complete) {
+          resolve()
+        } else {
+          image.onload = image.onerror = resolve
+        }
+      }))
+    )
+
+    return await window.html2pdf()
+      .set({
+        margin: 10,
+        filename: `${bill.number || 'invoice'}.pdf`,
+        image: { type: 'jpeg', quality: 0.98 },
+        html2canvas: { scale: 2, useCORS: true, allowTaint: true },
+        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
+      })
+      .from(root)
+      .outputPdf('blob')
+  } finally {
+    container.remove()
+  }
+}
+
+async function blobToBase64(blob) {
+  const dataUrl = await new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => resolve(reader.result)
+    reader.onerror = () => reject(new Error('Unable to prepare the invoice attachment.'))
+    reader.readAsDataURL(blob)
+  })
+
+  return String(dataUrl).split(',')[1] || ''
+}
+
 export default function BillsPage() {
   // =====================================================
   // STATE
@@ -311,6 +410,10 @@ export default function BillsPage() {
 
     try {
       setSendingEmail(bill.id)
+      const pdfBlob = await createBillPdfBlob(bill)
+      if (pdfBlob.size > 10 * 1024 * 1024) {
+        throw new Error('The invoice PDF is too large to email (maximum 10 MB).')
+      }
 
       const response = await fetch(
         '/api/send-email',
@@ -324,6 +427,10 @@ export default function BillsPage() {
             to: bill.customerEmail,
             bill,
             type: 'bill',
+            attachment: {
+              filename: `${bill.number || 'invoice'}.pdf`,
+              content: await blobToBase64(pdfBlob),
+            },
           }),
         }
       )
@@ -354,96 +461,18 @@ export default function BillsPage() {
     }
   }
 
-  // Download PDF by requesting generated HTML and using html2pdf (loaded from CDN or local import)
   const generatePdfAndDownload = async (bill) => {
     try {
-      const res = await fetch('/api/send-email', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          to: bill.customerEmail || '',
-          bill: bill,
-          type: 'bill',
-          returnHtml: true,
-        }),
-      })
-
-      const data = await res.json()
-
-      if (!res.ok || !data.html) {
-        throw new Error(data?.message || 'Failed to generate document HTML')
-      }
-
-      if (typeof window.html2pdf === 'undefined') {
-        let loaded = false
-
-        try {
-          const mod = await import('html2pdf.js')
-          const lib = mod?.default || mod
-          if (lib) {
-            window.html2pdf = lib
-            loaded = true
-          }
-        } catch (err) {
-          console.warn('html2pdf dynamic import failed:', err)
-        }
-
-        if (!loaded) {
-          await new Promise((resolve, reject) => {
-            const s = document.createElement('script')
-            s.src = 'https://unpkg.com/html2pdf.js@0.9.3/dist/html2pdf.bundle.min.js'
-            s.async = true
-            s.onload = () => resolve()
-            s.onerror = () => reject(new Error(`Failed to load html2pdf script from ${s.src}`))
-            document.head.appendChild(s)
-          })
-
-          if (typeof window.html2pdf === 'undefined') {
-            throw new Error('html2pdf did not initialize after loading script')
-          }
-        }
-      }
-
-      const container = document.createElement('div')
-      container.style.position = 'fixed'
-      container.style.left = '0'
-      container.style.top = '0'
-      container.style.width = '794px'
-      container.style.visibility = 'hidden'
-      container.style.zIndex = '99999'
-      container.innerHTML = data.html
-      document.body.appendChild(container)
-
-      const root = container.querySelector('.container') || container
-
-      const imgs = Array.from(root.querySelectorAll('img'))
-      if (imgs.length > 0) {
-        await Promise.all(
-          imgs.map(
-            (img) =>
-              new Promise((resolve) => {
-                if (img.complete) return resolve()
-                img.onload = img.onerror = () => resolve()
-              })
-          )
-        )
-      }
-
-      await window.html2pdf()
-        .set({
-          margin: 10,
-          filename: `${bill.number || 'invoice'}.pdf`,
-          image: { type: 'jpeg', quality: 0.98 },
-          html2canvas: { scale: 2, useCORS: true, allowTaint: true },
-          jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
-        })
-        .from(root)
-        .save()
-
-      document.body.removeChild(container)
+      const pdfBlob = await createBillPdfBlob(bill)
+      const objectUrl = URL.createObjectURL(pdfBlob)
+      const downloadLink = document.createElement('a')
+      downloadLink.href = objectUrl
+      downloadLink.download = `${bill.number || 'invoice'}.pdf`
+      downloadLink.click()
+      window.setTimeout(() => URL.revokeObjectURL(objectUrl), 0)
     } catch (err) {
       const message = err && err.message ? err.message : String(err)
-      console.error('PDF generation error:', err, { message })
+      console.error('PDF generation failed.')
       showMessage('error', message || 'Failed to download PDF')
     }
   }
